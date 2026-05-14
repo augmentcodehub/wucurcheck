@@ -16,9 +16,11 @@ class ProviderConfig:
 	name: str
 	domain: str
 	login_path: str = '/login'
+	login_api_path: str | None = None
 	sign_in_path: str | None = '/api/user/sign_in'
-	user_info_path: str = '/api/user/self'
-	api_user_key: str = 'new-api-user'
+	user_info_path: str | None = '/api/user/self'
+	api_user_key: str | None = 'new-api-user'
+	auth_mode: Literal['cookie', 'password_session', 'bearer_login'] = 'cookie'
 	bypass_method: Literal['waf_cookies'] | None = None
 	waf_cookie_names: List[str] | None = None
 
@@ -50,9 +52,11 @@ class ProviderConfig:
 			name=name,
 			domain=data['domain'],
 			login_path=data.get('login_path', '/login'),
+			login_api_path=data.get('login_api_path'),
 			sign_in_path=data.get('sign_in_path', '/api/user/sign_in'),
 			user_info_path=data.get('user_info_path', '/api/user/self'),
 			api_user_key=data.get('api_user_key', 'new-api-user'),
+			auth_mode=data.get('auth_mode', 'cookie'),
 			bypass_method=data.get('bypass_method'),
 			waf_cookie_names=data.get('waf_cookie_names'),
 		)
@@ -64,6 +68,14 @@ class ProviderConfig:
 	def needs_manual_check_in(self) -> bool:
 		"""判断是否需要手动调用签到接口"""
 		return self.sign_in_path is not None
+
+	def uses_bearer_login(self) -> bool:
+		"""判断是否使用 Bearer token 登录"""
+		return self.auth_mode == 'bearer_login'
+
+	def uses_password_session(self) -> bool:
+		"""判断是否使用账号密码登录并复用 session cookie"""
+		return self.auth_mode == 'password_session'
 
 
 @dataclass
@@ -80,9 +92,11 @@ class AppConfig:
 				name='anyrouter',
 				domain='https://anyrouter.top',
 				login_path='/login',
+				login_api_path=None,
 				sign_in_path='/api/user/sign_in',
 				user_info_path='/api/user/self',
 				api_user_key='new-api-user',
+				auth_mode='cookie',
 				bypass_method='waf_cookies',
 				waf_cookie_names=['acw_tc', 'cdn_sec_tc', 'acw_sc__v2'],
 			),
@@ -90,11 +104,25 @@ class AppConfig:
 				name='agentrouter',
 				domain='https://agentrouter.org',
 				login_path='/login',
+				login_api_path=None,
 				sign_in_path=None,  # 无需签到接口，查询用户信息时自动完成签到
 				user_info_path='/api/user/self',
 				api_user_key='new-api-user',
+				auth_mode='cookie',
 				bypass_method='waf_cookies',
 				waf_cookie_names=['acw_tc'],
+			),
+			'wucur': ProviderConfig(
+				name='wucur',
+				domain='http://wucur.com:6543',
+				login_path='/login',
+				login_api_path='/api/user/login',
+				sign_in_path='/api/user/checkin',
+				user_info_path='/api/user/self',
+				api_user_key='new-api-user',
+				auth_mode='password_session',
+				bypass_method=None,
+				waf_cookie_names=None,
 			),
 		}
 
@@ -135,10 +163,12 @@ class AppConfig:
 class AccountConfig:
 	"""账号配置"""
 
-	cookies: dict | str
-	api_user: str
+	cookies: dict | str | None = None
+	api_user: str | None = None
 	provider: str = 'anyrouter'
 	name: str | None = None
+	username: str | None = None
+	password: str | None = None
 
 	@classmethod
 	def from_dict(cls, data: dict, index: int) -> 'AccountConfig':
@@ -146,7 +176,14 @@ class AccountConfig:
 		provider = data.get('provider', 'anyrouter')
 		name = data.get('name', f'Account {index + 1}')
 
-		return cls(cookies=data['cookies'], api_user=data['api_user'], provider=provider, name=name if name else None)
+		return cls(
+			cookies=data.get('cookies'),
+			api_user=data.get('api_user'),
+			provider=provider,
+			name=name if name else None,
+			username=data.get('username'),
+			password=data.get('password'),
+		)
 
 	def get_display_name(self, index: int) -> str:
 		"""获取显示名称"""
@@ -173,8 +210,10 @@ def load_accounts_config() -> list[AccountConfig] | None:
 				print(f'ERROR: Account {i + 1} configuration format is incorrect')
 				return None
 
-			if 'cookies' not in account_dict or 'api_user' not in account_dict:
-				print(f'ERROR: Account {i + 1} missing required fields (cookies, api_user)')
+			has_cookie_auth = 'cookies' in account_dict and 'api_user' in account_dict
+			has_password_auth = 'username' in account_dict and 'password' in account_dict
+			if not has_cookie_auth and not has_password_auth:
+				print(f'ERROR: Account {i + 1} must provide either (cookies, api_user) or (username, password)')
 				return None
 
 			if 'name' in account_dict and not account_dict['name']:

@@ -21,6 +21,12 @@ load_dotenv()
 
 BALANCE_HASH_FILE = 'balance_hash.txt'
 
+try:
+	sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+	sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+except Exception:  # nosec B110
+	pass
+
 
 def load_balance_hash():
 	"""加载余额hash"""
@@ -52,6 +58,9 @@ def generate_balance_hash(balances):
 
 def parse_cookies(cookies_data):
 	"""解析 cookies 数据"""
+	if cookies_data is None:
+		return {}
+
 	if isinstance(cookies_data, dict):
 		return cookies_data
 
@@ -63,6 +72,66 @@ def parse_cookies(cookies_data):
 				cookies_dict[key] = value
 		return cookies_dict
 	return {}
+
+
+def build_login_payload(account: AccountConfig) -> dict:
+	"""构造登录请求体"""
+	return {
+		'username': account.username,
+		'password': account.password,
+	}
+
+
+def extract_token_from_login_response(response: httpx.Response) -> str | None:
+	"""从登录响应中提取 Bearer token"""
+	try:
+		data = response.json()
+	except json.JSONDecodeError:
+		return None
+
+	if not isinstance(data, dict):
+		return None
+
+	user_data = data.get('user')
+	if isinstance(user_data, dict):
+		token = user_data.get('token')
+		if isinstance(token, str) and token.strip():
+			return token.strip()
+
+	data_node = data.get('data')
+	if isinstance(data_node, dict):
+		user_data = data_node.get('user')
+		if isinstance(user_data, dict):
+			token = user_data.get('token')
+			if isinstance(token, str) and token.strip():
+				return token.strip()
+
+	return None
+
+
+def extract_login_user_id(response: httpx.Response) -> str | None:
+	"""从登录响应中提取用户 ID"""
+	try:
+		data = response.json()
+	except json.JSONDecodeError:
+		return None
+
+	if not isinstance(data, dict):
+		return None
+
+	data_node = data.get('data')
+	if isinstance(data_node, dict):
+		user_id = data_node.get('id')
+		if user_id is not None:
+			return str(user_id)
+
+	user_data = data.get('user')
+	if isinstance(user_data, dict):
+		user_id = user_data.get('id')
+		if user_id is not None:
+			return str(user_id)
+
+	return None
 
 
 async def get_waf_cookies_with_playwright(account_name: str, login_url: str, required_cookies: list[str]):
@@ -149,6 +218,93 @@ def get_user_info(client, headers, user_info_url: str):
 		return {'success': False, 'error': f'Failed to get user info: HTTP {response.status_code}'}
 	except Exception as e:
 		return {'success': False, 'error': f'Failed to get user info: {str(e)[:50]}...'}
+
+
+def login_with_bearer_token(client: httpx.Client, account_name: str, provider_config, account: AccountConfig) -> str | None:
+	"""通过账号密码登录并提取 Bearer token"""
+	if not account.username or not account.password:
+		print(f'[FAILED] {account_name}: Missing username/password for bearer login')
+		return None
+
+	if not provider_config.login_api_path:
+		print(f'[FAILED] {account_name}: Provider "{provider_config.name}" missing login_api_path')
+		return None
+
+	login_headers = {
+		'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+		'Accept': 'application/json, text/plain, */*',
+		'Content-Type': 'application/json',
+		'Origin': provider_config.domain,
+		'Referer': f'{provider_config.domain}{provider_config.login_path}',
+	}
+	login_url = f'{provider_config.domain}{provider_config.login_api_path}'
+
+	try:
+		response = client.post(login_url, headers=login_headers, json=build_login_payload(account), timeout=30)
+	except Exception as e:
+		print(f'[FAILED] {account_name}: Login request failed - {str(e)[:50]}...')
+		return None
+
+	if response.status_code != 200:
+		print(f'[FAILED] {account_name}: Login failed - HTTP {response.status_code}')
+		return None
+
+	token = extract_token_from_login_response(response)
+	if not token:
+		print(f'[FAILED] {account_name}: Login succeeded but token was not found')
+		return None
+
+	print(f'[SUCCESS] {account_name}: Bearer token acquired')
+	return token
+
+
+def login_with_session(client: httpx.Client, account_name: str, provider_config, account: AccountConfig) -> str | None:
+	"""通过账号密码登录并复用服务端设置的 session cookie"""
+	if not account.username or not account.password:
+		print(f'[FAILED] {account_name}: Missing username/password for password session login')
+		return None
+
+	if not provider_config.login_api_path:
+		print(f'[FAILED] {account_name}: Provider "{provider_config.name}" missing login_api_path')
+		return None
+
+	login_headers = {
+		'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
+		'Accept': 'application/json, text/plain, */*',
+		'Content-Type': 'application/json',
+		'Origin': provider_config.domain,
+		'Referer': f'{provider_config.domain}{provider_config.login_path}',
+	}
+	login_url = f'{provider_config.domain}{provider_config.login_api_path}'
+
+	try:
+		response = client.post(login_url, headers=login_headers, json=build_login_payload(account), timeout=30)
+	except Exception as e:
+		print(f'[FAILED] {account_name}: Login request failed - {str(e)[:50]}...')
+		return None
+
+	if response.status_code != 200:
+		print(f'[FAILED] {account_name}: Login failed - HTTP {response.status_code}')
+		return None
+
+	try:
+		result = response.json()
+	except json.JSONDecodeError:
+		print(f'[FAILED] {account_name}: Login failed - invalid JSON response')
+		return None
+
+	if not result.get('success'):
+		error_msg = result.get('message', 'Unknown error')
+		print(f'[FAILED] {account_name}: Login failed - {error_msg}')
+		return None
+
+	if 'session' not in client.cookies:
+		print(f'[FAILED] {account_name}: Login succeeded but session cookie was not found')
+		return None
+
+	user_id = extract_login_user_id(response)
+	print(f'[SUCCESS] {account_name}: Session login successful')
+	return user_id
 
 
 async def prepare_cookies(account_name: str, provider_config, user_cookies: dict) -> dict | None:
@@ -269,18 +425,30 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 	print(f'[INFO] {account_name}: Using provider "{account.provider}" ({provider_config.domain})')
 
 	user_cookies = parse_cookies(account.cookies)
-	if not user_cookies:
+	if not provider_config.uses_bearer_login() and not provider_config.uses_password_session() and not user_cookies:
 		print(f'[FAILED] {account_name}: Invalid configuration format')
-		return False, None
-
-	all_cookies = await prepare_cookies(account_name, provider_config, user_cookies)
-	if not all_cookies:
 		return False, None
 
 	client = httpx.Client(http2=True, timeout=30.0)
 
 	try:
-		client.cookies.update(all_cookies)
+		if provider_config.uses_bearer_login():
+			token = login_with_bearer_token(client, account_name, provider_config, account)
+			if not token:
+				return False, None, None
+			logged_in_api_user = None
+		elif provider_config.uses_password_session():
+			logged_in_api_user = login_with_session(client, account_name, provider_config, account)
+			if not logged_in_api_user:
+				return False, None, None
+			token = None
+		else:
+			all_cookies = await prepare_cookies(account_name, provider_config, user_cookies)
+			if not all_cookies:
+				return False, None, None
+			client.cookies.update(all_cookies)
+			token = None
+			logged_in_api_user = account.api_user
 
 		headers = {
 			'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36',
@@ -293,25 +461,35 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 			'Sec-Fetch-Dest': 'empty',
 			'Sec-Fetch-Mode': 'cors',
 			'Sec-Fetch-Site': 'same-origin',
-			provider_config.api_user_key: account.api_user,
 		}
+		api_user_value = account.api_user or logged_in_api_user
+		if provider_config.api_user_key and api_user_value:
+			headers[provider_config.api_user_key] = api_user_value
+		if token:
+			headers['Authorization'] = f'Bearer {token}'
 
-		user_info_url = f'{provider_config.domain}{provider_config.user_info_path}'
-		user_info_before = get_user_info(client, headers, user_info_url)
-		if user_info_before and user_info_before.get('success'):
-			print(user_info_before['display'])
-		elif user_info_before:
-			print(user_info_before.get('error', 'Unknown error'))
+		user_info_before = None
+		user_info_after = None
+		user_info_url = None
+		if provider_config.user_info_path:
+			user_info_url = f'{provider_config.domain}{provider_config.user_info_path}'
+			user_info_before = get_user_info(client, headers, user_info_url)
+			if user_info_before and user_info_before.get('success'):
+				print(user_info_before['display'])
+			elif user_info_before:
+				print(user_info_before.get('error', 'Unknown error'))
 
 		if provider_config.needs_manual_check_in():
 			success = execute_check_in(client, account_name, provider_config, headers)
 			# 签到后再次获取用户信息，用于计算签到收益
-			user_info_after = get_user_info(client, headers, user_info_url)
+			if user_info_url:
+				user_info_after = get_user_info(client, headers, user_info_url)
 			return success, user_info_before, user_info_after
 		else:
 			print(f'[INFO] {account_name}: Check-in completed automatically (triggered by user info request)')
 			# 自动签到的情况，再次获取用户信息
-			user_info_after = get_user_info(client, headers, user_info_url)
+			if user_info_url:
+				user_info_after = get_user_info(client, headers, user_info_url)
 			return True, user_info_before, user_info_after
 
 	except Exception as e:
