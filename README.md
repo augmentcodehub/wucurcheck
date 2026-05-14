@@ -9,6 +9,8 @@
 
 多平台多账号自动签到，理论上支持所有 NewAPI、OneAPI 平台，目前内置支持 Any Router 与 Agent Router，其它可根据文档进行摸索配置。
 
+如果你只需要配置 `wucur` 站点，请直接看专用教程：[docs/wucur-github-checkin-guide.md](./docs/wucur-github-checkin-guide.md)。
+
 推荐搭配使用[Auo](https://github.com/millylee/auo)，支持任意 Claude Code Token 切换的工具。
 
 **维护开源不易，如果本项目帮助到了你，请帮忙点个 Star，谢谢!**
@@ -30,10 +32,12 @@
 
 ### 2. 获取账号信息
 
-对于每个需要签到的账号，你需要获取：(可借助 [在线 Secrets 配置生成器](https://millylee.github.io/anyrouter-check-in/))
+对于每个需要签到的账号，你需要准备一套认证信息，可选两种模式：
 
-1. **Cookies**: 用于身份验证
-2. **API User**: 用于请求头的 new-api-user 参数（自己配置其它平台时该值需要注意匹配）
+1. **Cookies + API User**：适用于传统 New API / One API cookie 模式
+2. **Username + Password**：适用于登录后由服务端下发 session cookie 的站点（如 `wucur`）
+
+如果你使用的是传统模式，可借助 [在线 Secrets 配置生成器](https://millylee.github.io/anyrouter-check-in/)。
 
 #### 获取 Cookies：
 
@@ -60,7 +64,9 @@
 
 ### 4. 多账号配置格式
 
-支持单个与多个账号配置，可选 `name` 和 `provider` 字段：
+支持单个与多个账号配置，可选 `name` 和 `provider` 字段。
+
+### Cookie 模式
 
 ```json
 [
@@ -82,10 +88,25 @@
 ]
 ```
 
+### 用户名密码模式（session 登录）
+
+```json
+[
+  {
+    "name": "Wucur 主账号",
+    "provider": "wucur",
+    "username": "your_username",
+    "password": "your_password"
+  }
+]
+```
+
 **字段说明**：
 
-- `cookies` (必需)：用于身份验证的 cookies 数据
-- `api_user` (必需)：用于请求头的 new-api-user 参数
+- `cookies` (Cookie 模式必需)：用于身份验证的 cookies 数据
+- `api_user` (Cookie 模式必需)：用于请求头的 new-api-user 参数
+- `username` (用户名密码模式必需)：登录用户名
+- `password` (用户名密码模式必需)：登录密码
 - `provider` (可选)：指定使用的服务商，默认为 `anyrouter`
 - `name` (可选)：自定义账号显示名称，用于通知和日志中标识账号
 
@@ -201,18 +222,38 @@
 
 ### 完整配置（自定义路径）
 
-如果服务商使用了不同的 API 路径、请求头或需要 WAF 绕过，可以额外指定：
+如果服务商使用了不同的认证方式、API 路径、请求头或需要 WAF 绕过，可以额外指定：
 
 ```json
 {
   "customrouter": {
     "domain": "https://custom.example.com",
     "login_path": "/auth/login",
+    "login_api_path": "/api/user/login",
     "sign_in_path": "/api/checkin",
     "user_info_path": "/api/profile",
     "api_user_key": "New-Api-User",
+    "auth_mode": "cookie",
     "bypass_method": "waf_cookies",
     "waf_cookie_names": ["acw_tc", "cdn_sec_tc", "acw_sc__v2"]
+  }
+}
+```
+
+### Wucur Provider 示例
+
+适用于 `POST /api/user/login` 登录后由服务端设置 `session` cookie，后续使用该 cookie 调用签到接口的站点：
+
+```json
+{
+  "wucur": {
+    "domain": "http://wucur.com:6543",
+    "login_path": "/login",
+    "login_api_path": "/api/user/login",
+    "sign_in_path": "/api/user/checkin",
+    "user_info_path": "/api/user/self",
+    "auth_mode": "password_session",
+    "api_user_key": "new-api-user"
   }
 }
 ```
@@ -235,9 +276,14 @@
 
 - `domain` (必需)：服务商的域名
 - `login_path` (可选)：登录页面路径，默认为 `/login`（仅在 `bypass_method` 为 `"waf_cookies"` 时使用）
+- `login_api_path` (用户名密码模式必需)：登录 API 路径，例如 `/api/user/login`
 - `sign_in_path` (可选)：签到 API 路径，默认为 `/api/user/sign_in`
 - `user_info_path` (可选)：用户信息 API 路径，默认为 `/api/user/self`
-- `api_user_key` (可选)：API 用户标识请求头名称，默认为 `new-api-user`
+- `api_user_key` (可选)：API 用户标识请求头名称，默认为 `new-api-user`，如不需要可设为 `null`
+- `auth_mode` (可选)：认证模式
+  - `"cookie"`：使用 `cookies + api_user`
+  - `"password_session"`：使用 `username + password` 登录并复用服务端设置的 session cookie
+  - `"bearer_login"`：使用 `username + password` 登录并提取 Bearer Token
 - `bypass_method` (可选)：WAF 绕过方法
   - `"waf_cookies"`：使用 Playwright 打开浏览器获取 WAF cookies 后再执行签到
   - 不设置或 `null`：直接使用用户 cookies 执行签到（适合无 WAF 保护的网站）
@@ -266,11 +312,37 @@
 - `agentrouter`：
   - `bypass_method: null`（直接使用用户 cookies 执行签到）
   - `sign_in_path: "/api/user/sign_in"`
+- `wucur`：
+  - `auth_mode: "password_session"`（使用账号密码登录，自动建立 session）
+  - `login_api_path: "/api/user/login"`
+  - `sign_in_path: "/api/user/checkin"`
+  - `user_info_path: "/api/user/self"`
 
 **重要提示**：
 
-- `PROVIDERS` 是可选的，不配置则使用内置的 `anyrouter` 和 `agentrouter`
+- `PROVIDERS` 是可选的，不配置则使用内置的 `anyrouter`、`agentrouter` 和 `wucur`
 - 自定义的 provider 配置会覆盖同名的默认配置
+
+### GitHub Secrets 最小示例（Wucur）
+
+`ANYROUTER_ACCOUNTS`
+
+```json
+[
+  {
+    "name": "wucur",
+    "provider": "wucur",
+    "username": "你的邮箱",
+    "password": "你的密码"
+  }
+]
+```
+
+`SERVERPUSHKEY`
+
+```text
+你的Server酱SendKey
+```
 
 ## 开启通知
 
