@@ -74,7 +74,7 @@
 
 这个项目支持 `n` 个账号签到，直接把多个账号放到 `ANYROUTER_ACCOUNTS` 数组里即可。
 
-示例：
+双账号示例：
 
 ```json
 [
@@ -97,6 +97,79 @@
     "password": "pass3"
   }
 ]
+```
+
+10 账号可复制模板：
+
+```json
+[
+  {
+    "name": "账号1",
+    "provider": "wucur",
+    "username": "user1@example.com",
+    "password": "your_password_1"
+  },
+  {
+    "name": "账号2",
+    "provider": "wucur",
+    "username": "user2@example.com",
+    "password": "your_password_2"
+  },
+  {
+    "name": "账号3",
+    "provider": "wucur",
+    "username": "user3@example.com",
+    "password": "your_password_3"
+  },
+  {
+    "name": "账号4",
+    "provider": "wucur",
+    "username": "user4@example.com",
+    "password": "your_password_4"
+  },
+  {
+    "name": "账号5",
+    "provider": "wucur",
+    "username": "user5@example.com",
+    "password": "your_password_5"
+  },
+  {
+    "name": "账号6",
+    "provider": "wucur",
+    "username": "user6@example.com",
+    "password": "your_password_6"
+  },
+  {
+    "name": "账号7",
+    "provider": "wucur",
+    "username": "user7@example.com",
+    "password": "your_password_7"
+  },
+  {
+    "name": "账号8",
+    "provider": "wucur",
+    "username": "user8@example.com",
+    "password": "your_password_8"
+  },
+  {
+    "name": "账号9",
+    "provider": "wucur",
+    "username": "user9@example.com",
+    "password": "your_password_9"
+  },
+  {
+    "name": "账号10",
+    "provider": "wucur",
+    "username": "user10@example.com",
+    "password": "your_password_10"
+  }
+]
+```
+
+如果你是在 GitHub Secret 里粘贴，推荐直接使用单行 JSON，能减少换行和逗号错误：
+
+```json
+[{"name":"账号1","provider":"wucur","username":"user1@example.com","password":"your_password_1"},{"name":"账号2","provider":"wucur","username":"user2@example.com","password":"your_password_2"},{"name":"账号3","provider":"wucur","username":"user3@example.com","password":"your_password_3"},{"name":"账号4","provider":"wucur","username":"user4@example.com","password":"your_password_4"},{"name":"账号5","provider":"wucur","username":"user5@example.com","password":"your_password_5"},{"name":"账号6","provider":"wucur","username":"user6@example.com","password":"your_password_6"},{"name":"账号7","provider":"wucur","username":"user7@example.com","password":"your_password_7"},{"name":"账号8","provider":"wucur","username":"user8@example.com","password":"your_password_8"},{"name":"账号9","provider":"wucur","username":"user9@example.com","password":"your_password_9"},{"name":"账号10","provider":"wucur","username":"user10@example.com","password":"your_password_10"}]
 ```
 
 脚本会按顺序逐个执行：
