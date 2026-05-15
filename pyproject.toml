@@ -9,6 +9,24 @@ dependencies = [
   "python-dotenv>=1.0.0"
 ]
 
+[project.scripts]
+wucur = "wucur_cli.cli:main"
+checkin-due = "scripts.checkin_due_cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+package = true
+
+[tool.setuptools]
+py-modules = ["checkin"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["scripts*", "utils*", "wucur_cli*"]
+
 [dependency-groups]
 dev = [
   "pytest>=7.4.0",

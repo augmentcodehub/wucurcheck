@@ -426,7 +426,12 @@ uv run playwright install chromium
 
 # 运行签到脚本
 uv run checkin.py
+
+# 查看 checkin-due 入口
+uv run checkin-due --help
 ```
+
+如果你只想处理本地已入库账号的到期签到，可以看专门说明：[docs/checkin-due-cli.md](./docs/checkin-due-cli.md)。
 
 ## 测试
 
