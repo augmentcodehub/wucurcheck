@@ -75,12 +75,12 @@ jobs:
           email_prefix = $env:EMAIL_PREFIX
           email_domain = $env:EMAIL_DOMAIN
           password = $env:REG_PASSWORD
-          timestamp_format = "%m%d%H%M"
+          timestamp_format = ""
           random_length = 4
           separator = ""
-          seed_template = "{seq}_{time}{rand}"
+          seed_template = "{seq}{rand}"
           name_template = "{name_prefix}{seed}"
-          email_local_template = "{email_prefix}{separator}{seed}"
+          email_local_template = "{email_prefix}{seed}"
           sequence_start = 1
           sequence_width = 2
           count = [int]$env:REGISTER_COUNT
