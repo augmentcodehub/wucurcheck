@@ -69,32 +69,33 @@ jobs:
         EMAIL_DOMAIN: ${{ inputs.email_domain }}
         REG_PASSWORD: ${{ inputs.password }}
       run: |
-        # 生成规则配置
-        $config = @{
-          name_prefix = "wucur"
-          email_prefix = $env:EMAIL_PREFIX
-          email_domain = $env:EMAIL_DOMAIN
-          password = $env:REG_PASSWORD
-          timestamp_format = ""
-          random_length = 4
-          separator = ""
-          seed_template = "{seq}{rand}"
-          name_template = "{name_prefix}{seed}"
-          email_local_template = "{email_prefix}{seed}"
-          sequence_start = 1
-          sequence_width = 2
-          count = [int]$env:REGISTER_COUNT
-          provider = "wucur"
-          skip_checkin = $true
-          json_output = $true
-        } | ConvertTo-Json -Depth 3
-
-        $configPath = "artifacts/register_wucur_wrapper.json"
+        # 生成自然用户名的 Python 脚本
         New-Item -ItemType Directory -Force -Path "artifacts" | Out-Null
-        $config | Out-File -FilePath $configPath -Encoding utf8
+        $pyScript = @"
+import json, random, sys
+count = int(sys.argv[1])
+domain = sys.argv[2]
+password = sys.argv[3]
 
-        # 生成账号
-        uv run python python/src/tools/account_generation/generate_accounts.py --config $configPath --output artifacts/generated_accounts.json --stdout
+fruits = ["apple","mango","peach","berry","lemon","grape","melon","plum","kiwi","cherry"]
+animals = ["fox","cat","owl","bee","wolf","deer","hawk","lion","bear","duck"]
+
+accounts = []
+for i in range(count):
+    word1 = random.choice(fruits)
+    word2 = random.choice(animals)
+    num = random.randint(10, 99)
+    local = f"{word1}{num}{word2}"
+    name = f"user_{local}"
+    accounts.append({"sequence":str(i+1),"seed":local,"name":name,"provider":"wucur","username":f"{local}@{domain}","password":password})
+
+print(json.dumps(accounts, ensure_ascii=False, indent=2))
+"@
+        $pyScript | Out-File -FilePath gen_accounts.py -Encoding utf8
+        $output = uv run python gen_accounts.py $env:REGISTER_COUNT $env:EMAIL_DOMAIN $env:REG_PASSWORD
+        $output | Out-File -FilePath artifacts/generated_accounts.json -Encoding utf8
+        echo $output
+        echo "[SUCCESS] Generated $env:REGISTER_COUNT account(s)"
 
         # 逐个注册
         $accounts = Get-Content artifacts/generated_accounts.json | ConvertFrom-Json
