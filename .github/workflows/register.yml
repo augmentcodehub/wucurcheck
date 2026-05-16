@@ -1,10 +1,11 @@
-name: 注册新账号
+name: 批量注册账号
 on:
   workflow_dispatch:
     inputs:
-      account_json:
-        description: '账号 JSON（{"name":"xx","provider":"wucur","username":"邮箱","password":"密码"}）'
-        required: true
+      count:
+        description: '注册数量（默认10）'
+        required: false
+        default: '10'
         type: string
       callback_url:
         description: '回调地址'
@@ -44,39 +45,86 @@ jobs:
       if: steps.uv-cache.outputs.cache-hit != 'true'
       run: uv sync
 
-    - name: 执行注册
+    - name: 生成并注册账号
       id: register
       env:
         PROVIDERS: ${{ secrets.PROVIDERS }}
+        REGISTER_COUNT: ${{ inputs.count }}
       run: |
-        $result = uv run python python/src/tools/register/register_one_account.py --json-input '${{ inputs.account_json }}' --json 2>&1
-        echo "output=$result" >> $env:GITHUB_OUTPUT
-        echo $result
+        # 生成规则配置
+        $config = @{
+          name_prefix = "wucur"
+          email_prefix = "wucur"
+          email_domain = "mailto.plus"
+          password = "123Claude&Codex"
+          timestamp_format = "%m%d%H%M"
+          random_length = 4
+          separator = ""
+          seed_template = "{seq}_{time}{rand}"
+          name_template = "{name_prefix}{seed}"
+          email_local_template = "{email_prefix}{separator}{seed}"
+          sequence_start = 1
+          sequence_width = 2
+          count = [int]$env:REGISTER_COUNT
+          provider = "wucur"
+          skip_checkin = $true
+          json_output = $true
+        } | ConvertTo-Json -Depth 3
+
+        $configPath = "artifacts/register_wucur_wrapper.json"
+        New-Item -ItemType Directory -Force -Path "artifacts" | Out-Null
+        $config | Out-File -FilePath $configPath -Encoding utf8
+
+        # 生成账号
+        uv run python python/src/tools/account_generation/generate_accounts.py --config $configPath --output artifacts/generated_accounts.json --stdout
+
+        # 逐个注册
+        $accounts = Get-Content artifacts/generated_accounts.json | ConvertFrom-Json
+        $results = @()
+        foreach ($account in $accounts) {
+          $accountJson = $account | ConvertTo-Json -Compress
+          echo "--- 注册: $($account.username) ---"
+          $exitCode = 0
+          try {
+            uv run python python/src/tools/register/register_one_account.py --json-input $accountJson --json
+            $exitCode = $LASTEXITCODE
+          } catch {
+            $exitCode = 1
+          }
+          $results += @{
+            username = $account.username
+            password = $account.password
+            platform = $account.provider
+            status = if ($exitCode -eq 0) { "active" } else { "failed" }
+            last_result = if ($exitCode -eq 0) { "注册成功" } else { "注册失败" }
+          }
+          # 间隔避免频率限制
+          Start-Sleep -Seconds 3
+        }
+
+        # 保存结果
+        $results | ConvertTo-Json -Depth 3 | Out-File -FilePath artifacts/register_results.json -Encoding utf8
+        echo "✅ 注册完成: $($results.Count) 个账号"
 
     - name: 回调 Worker Dashboard
       if: always()
       env:
         CALLBACK_URL: ${{ inputs.callback_url || secrets.WORKER_CALLBACK_URL }}
         CALLBACK_SECRET: ${{ secrets.WORKER_CALLBACK_SECRET }}
-        ACCOUNT_JSON: ${{ inputs.account_json }}
       run: |
         if (-not $env:CALLBACK_URL) { echo "跳过回调"; exit 0 }
-        $account = $env:ACCOUNT_JSON | ConvertFrom-Json
-        $status = if ("${{ job.status }}" -eq "success") { "active" } else { "failed" }
+        if (-not (Test-Path artifacts/register_results.json)) {
+          echo "无注册结果文件"; exit 0
+        }
+        $results = Get-Content artifacts/register_results.json | ConvertFrom-Json
         $body = @{
           secret = $env:CALLBACK_SECRET
-          action = "register"
-          data = @{
-            username = $account.username
-            password = $account.password
-            platform = $account.provider
-            status = $status
-            last_result = if ($status -eq "active") { "注册成功" } else { "注册失败" }
-          }
-        } | ConvertTo-Json -Depth 3
+          action = "batch_result"
+          data = @{ results = $results }
+        } | ConvertTo-Json -Depth 4
         try {
-          Invoke-RestMethod -Uri $env:CALLBACK_URL -Method POST -Body $body -ContentType "application/json"
-          echo "✅ 回调成功"
+          Invoke-RestMethod -Uri $env:CALLBACK_URL -Method POST -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -ContentType "application/json; charset=utf-8"
+          echo "✅ 回调成功，写入 $($results.Count) 个账号"
         } catch {
           echo "⚠️ 回调失败: $_"
         }
