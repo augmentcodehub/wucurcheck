@@ -7,6 +7,21 @@ on:
         required: false
         default: '10'
         type: string
+      email_prefix:
+        description: '邮箱前缀'
+        required: false
+        default: 'wucur'
+        type: string
+      email_domain:
+        description: '邮箱域名'
+        required: false
+        default: 'mailto.plus'
+        type: string
+      password:
+        description: '密码'
+        required: false
+        default: '123Claude&Codex'
+        type: string
       callback_url:
         description: '回调地址'
         required: false
@@ -50,13 +65,16 @@ jobs:
       env:
         PROVIDERS: ${{ secrets.PROVIDERS }}
         REGISTER_COUNT: ${{ inputs.count }}
+        EMAIL_PREFIX: ${{ inputs.email_prefix }}
+        EMAIL_DOMAIN: ${{ inputs.email_domain }}
+        REG_PASSWORD: ${{ inputs.password }}
       run: |
         # 生成规则配置
         $config = @{
           name_prefix = "wucur"
-          email_prefix = "wucur"
-          email_domain = "mailto.plus"
-          password = "123Claude&Codex"
+          email_prefix = $env:EMAIL_PREFIX
+          email_domain = $env:EMAIL_DOMAIN
+          password = $env:REG_PASSWORD
           timestamp_format = "%m%d%H%M"
           random_length = 4
           separator = ""
