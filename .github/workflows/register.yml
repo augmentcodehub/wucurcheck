@@ -91,7 +91,7 @@ jobs:
             status = if ($exitCode -eq 0) { "active" } else { "failed" }
             last_result = if ($exitCode -eq 0) { "注册成功" } else { "注册失败" }
           }
-          Start-Sleep -Seconds 3
+          Start-Sleep -Seconds 10
         }
 
         $results | ConvertTo-Json -Depth 3 | Out-File -FilePath artifacts/register_results.json -Encoding utf8
