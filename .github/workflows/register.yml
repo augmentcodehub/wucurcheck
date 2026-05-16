@@ -8,9 +8,9 @@ on:
         default: '10'
         type: string
       email_prefix:
-        description: '邮箱前缀'
+        description: '用户名组合（fruit+animal / plant+metal 等）'
         required: false
-        default: 'wucur'
+        default: 'fruit+animal'
         type: string
       email_domain:
         description: '邮箱域名'
@@ -64,53 +64,12 @@ jobs:
       id: register
       env:
         PROVIDERS: ${{ secrets.PROVIDERS }}
-        REGISTER_COUNT: ${{ inputs.count }}
-        EMAIL_PREFIX: ${{ inputs.email_prefix }}
-        EMAIL_DOMAIN: ${{ inputs.email_domain }}
-        REG_PASSWORD: ${{ inputs.password }}
       run: |
-        # 生成自然用户名的 Python 脚本
         New-Item -ItemType Directory -Force -Path "artifacts" | Out-Null
-        $pyScript = @"
-import json, random, sys
-count = int(sys.argv[1])
-domain = sys.argv[2]
-password = sys.argv[3]
-prefix = sys.argv[4]  # 格式: "fruit+animal" 或 "plant+metal" 等
 
-categories = {
-    "fruit": ["apple","mango","peach","berry","lemon","grape","melon","plum","kiwi","cherry","pear","fig","lime","olive","guava","papaya","lychee","date","prune","coconut","banana","orange","apricot","avocado","blueberry","cranberry","dragonfruit","elderberry","grapefruit","jackfruit","kumquat","mandarin","nectarine","passion","persimmon","pomelo","quince","raisin","starfruit","tangerine","watermelon","boysenberry","cantaloupe","clementine","currant","damson","durian","feijoa","gooseberry","honeydew"],
-    "animal": ["fox","cat","owl","bee","wolf","deer","hawk","lion","bear","duck","frog","crab","swan","crow","dove","eagle","fish","goat","hare","ibis","jay","kite","lark","mole","newt","orca","puma","quail","robin","seal","toad","viper","wren","yak","zebra","ant","bat","cod","dog","eel","elk","emu","fly","gnu","hen","hog","imp","koi","lynx","moth","ox"],
-    "plant": ["rose","lily","fern","moss","sage","mint","iris","palm","vine","reed","oak","elm","ivy","aloe","basil","cedar","daisy","lotus","maple","orchid","pine","tulip","willow","bamboo","clover","daffodil","eucalyptus","gardenia","heather","jasmine","lavender","magnolia","nettle","oleander","peony","rosemary","sunflower","thyme","violet","wisteria","yarrow","zinnia","aster","begonia","camellia","dahlia","freesia","ginger","holly","juniper"],
-    "metal": ["iron","gold","zinc","lead","tin","ruby","jade","onyx","opal","pearl","amber","brass","steel","chrome","cobalt","copper","nickel","silver","bronze","platinum","titanium","mercury","radium","barium","cesium","helium","iodine","neon","argon","boron","carbon","lithium","sodium","sulfur","silicon","calcium","magnesium","aluminum","potassium","manganese","vanadium","gallium","germanium","arsenic","selenium","bromine","krypton","zirconium","niobium","molybdenum"],
-}
-
-parts = prefix.split("+") if "+" in prefix else ["fruit", "animal"]
-cat1 = parts[0].strip().lower()
-cat2 = parts[1].strip().lower() if len(parts) > 1 else "animal"
-pool1 = categories.get(cat1, categories["fruit"])
-pool2 = categories.get(cat2, categories["animal"])
-
-accounts = []
-used = set()
-for i in range(count):
-    while True:
-        w1 = random.choice(pool1)
-        w2 = random.choice(pool2)
-        n = random.randint(0, 9)
-        local = f"{w1}{n}{w2}"
-        if local not in used and len(local) <= 16:
-            used.add(local)
-            break
-    accounts.append({"sequence":str(i+1),"seed":local,"name":f"u_{local}","provider":"wucur","username":f"{local}@{domain}","password":password})
-
-print(json.dumps(accounts, ensure_ascii=False, indent=2))
-"@
-        $pyScript | Out-File -FilePath gen_accounts.py -Encoding utf8
-        $output = uv run python gen_accounts.py $env:REGISTER_COUNT $env:EMAIL_DOMAIN $env:REG_PASSWORD $env:EMAIL_PREFIX
-        $output | Out-File -FilePath artifacts/generated_accounts.json -Encoding utf8
-        echo $output
-        echo "[SUCCESS] Generated $env:REGISTER_COUNT account(s)"
+        # 生成账号
+        uv run python python/src/tools/account_generation/gen_natural_accounts.py ${{ inputs.count }} "${{ inputs.email_domain }}" "${{ inputs.password }}" "${{ inputs.email_prefix }}" | Out-File -FilePath artifacts/generated_accounts.json -Encoding utf8
+        Get-Content artifacts/generated_accounts.json
 
         # 逐个注册
         $accounts = Get-Content artifacts/generated_accounts.json | ConvertFrom-Json
@@ -132,13 +91,11 @@ print(json.dumps(accounts, ensure_ascii=False, indent=2))
             status = if ($exitCode -eq 0) { "active" } else { "failed" }
             last_result = if ($exitCode -eq 0) { "注册成功" } else { "注册失败" }
           }
-          # 间隔避免频率限制
           Start-Sleep -Seconds 3
         }
 
-        # 保存结果
         $results | ConvertTo-Json -Depth 3 | Out-File -FilePath artifacts/register_results.json -Encoding utf8
-        echo "✅ 注册完成: $($results.Count) 个账号"
+        echo "注册完成: $($results.Count) 个账号"
 
     - name: 回调 Worker Dashboard
       if: always()
@@ -147,9 +104,7 @@ print(json.dumps(accounts, ensure_ascii=False, indent=2))
         CALLBACK_SECRET: ${{ secrets.WORKER_CALLBACK_SECRET }}
       run: |
         if (-not $env:CALLBACK_URL) { echo "跳过回调"; exit 0 }
-        if (-not (Test-Path artifacts/register_results.json)) {
-          echo "无注册结果文件"; exit 0
-        }
+        if (-not (Test-Path artifacts/register_results.json)) { echo "无结果文件"; exit 0 }
         $results = Get-Content artifacts/register_results.json | ConvertFrom-Json
         $body = @{
           secret = $env:CALLBACK_SECRET
@@ -158,7 +113,7 @@ print(json.dumps(accounts, ensure_ascii=False, indent=2))
         } | ConvertTo-Json -Depth 4
         try {
           Invoke-RestMethod -Uri $env:CALLBACK_URL -Method POST -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -ContentType "application/json; charset=utf-8"
-          echo "✅ 回调成功，写入 $($results.Count) 个账号"
+          echo "回调成功，写入 $($results.Count) 个账号"
         } catch {
-          echo "⚠️ 回调失败: $_"
+          echo "回调失败: $_"
         }
