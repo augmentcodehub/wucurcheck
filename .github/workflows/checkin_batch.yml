@@ -1,0 +1,76 @@
+name: 批量签到未签到账号
+on:
+  workflow_dispatch:
+    inputs:
+      accounts_json:
+        description: '账号列表 JSON'
+        required: true
+        type: string
+      callback_url:
+        description: '回调地址'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  checkin:
+    runs-on: windows-2025
+    environment: production
+    env:
+      PYTHONIOENCODING: utf-8
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+      with:
+        version: "latest"
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+
+    - name: 缓存 UV 依赖
+      uses: actions/cache@v5
+      id: uv-cache
+      with:
+        path: |
+          ~/.cache/uv
+          .venv
+        key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
+
+    - name: 安装依赖
+      if: steps.uv-cache.outputs.cache-hit != 'true'
+      run: uv sync
+
+    - name: 逐个签到
+      env:
+        ACCOUNTS_JSON: ${{ inputs.accounts_json }}
+        PROVIDERS: ${{ secrets.PROVIDERS }}
+      run: |
+        New-Item -ItemType Directory -Force -Path "artifacts" | Out-Null
+        $env:ACCOUNTS_JSON | Out-File -FilePath artifacts/checkin_accounts.json -Encoding utf8
+        uv run python python/src/scripts/checkin_batch.py
+        echo "签到完成"
+
+    - name: 回调 Worker Dashboard
+      if: always()
+      env:
+        CALLBACK_URL: ${{ inputs.callback_url || secrets.WORKER_CALLBACK_URL }}
+        CALLBACK_SECRET: ${{ secrets.WORKER_CALLBACK_SECRET }}
+      run: |
+        if (-not $env:CALLBACK_URL) { echo "跳过回调"; exit 0 }
+        if (-not (Test-Path artifacts/checkin_results.json)) { echo "无结果文件"; exit 0 }
+        $results = Get-Content artifacts/checkin_results.json -Encoding utf8 | ConvertFrom-Json
+        $body = @{
+          secret = $env:CALLBACK_SECRET
+          action = "batch_result"
+          data = @{ results = $results }
+        } | ConvertTo-Json -Depth 4
+        try {
+          Invoke-RestMethod -Uri $env:CALLBACK_URL -Method POST -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -ContentType "application/json; charset=utf-8"
+          echo "回调成功，写入 $($results.Count) 个结果"
+        } catch {
+          echo "回调失败: $_"
+        }
