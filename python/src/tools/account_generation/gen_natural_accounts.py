@@ -18,13 +18,14 @@ def generate(count, domain, password, combo):
 
     accounts = []
     used = set()
+    max_local = 20 - len(domain) - 2  # strict: total email < 20
     for i in range(count):
-        for _ in range(100):
+        for _ in range(200):
             w1 = random.choice(pool1)
             w2 = random.choice(pool2)
             n = random.randint(0, 9)
             local = f"{w1}{n}{w2}"
-            if local not in used and len(local) <= 16:
+            if local not in used and len(local) <= max_local:
                 used.add(local)
                 break
         accounts.append({
