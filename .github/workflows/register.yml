@@ -15,7 +15,7 @@ on:
       email_domain:
         description: '邮箱域名'
         required: false
-        default: 'mailto.plus'
+        default: 'qq.com'
         type: string
       password:
         description: '密码'
