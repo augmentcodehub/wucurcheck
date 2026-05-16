@@ -1,0 +1,82 @@
+name: 注册新账号
+on:
+  workflow_dispatch:
+    inputs:
+      account_json:
+        description: '账号 JSON（{"name":"xx","provider":"wucur","username":"邮箱","password":"密码"}）'
+        required: true
+        type: string
+      callback_url:
+        description: '回调地址'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  register:
+    runs-on: windows-2025
+    environment: production
+    env:
+      PYTHONIOENCODING: utf-8
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+      with:
+        version: "latest"
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+
+    - name: 缓存 UV 依赖
+      uses: actions/cache@v5
+      id: uv-cache
+      with:
+        path: |
+          ~/.cache/uv
+          .venv
+        key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
+
+    - name: 安装依赖
+      if: steps.uv-cache.outputs.cache-hit != 'true'
+      run: uv sync
+
+    - name: 执行注册
+      id: register
+      env:
+        PROVIDERS: ${{ secrets.PROVIDERS }}
+      run: |
+        $result = uv run python python/src/tools/register/register_one_account.py --json-input '${{ inputs.account_json }}' --json 2>&1
+        echo "output=$result" >> $env:GITHUB_OUTPUT
+        echo $result
+
+    - name: 回调 Worker Dashboard
+      if: always()
+      env:
+        CALLBACK_URL: ${{ inputs.callback_url || secrets.WORKER_CALLBACK_URL }}
+        CALLBACK_SECRET: ${{ secrets.WORKER_CALLBACK_SECRET }}
+        ACCOUNT_JSON: ${{ inputs.account_json }}
+      run: |
+        if (-not $env:CALLBACK_URL) { echo "跳过回调"; exit 0 }
+        $account = $env:ACCOUNT_JSON | ConvertFrom-Json
+        $status = if ("${{ job.status }}" -eq "success") { "active" } else { "failed" }
+        $body = @{
+          secret = $env:CALLBACK_SECRET
+          action = "register"
+          data = @{
+            username = $account.username
+            password = $account.password
+            platform = $account.provider
+            status = $status
+            last_result = if ($status -eq "active") { "注册成功" } else { "注册失败" }
+          }
+        } | ConvertTo-Json -Depth 3
+        try {
+          Invoke-RestMethod -Uri $env:CALLBACK_URL -Method POST -Body $body -ContentType "application/json"
+          echo "✅ 回调成功"
+        } catch {
+          echo "⚠️ 回调失败: $_"
+        }
