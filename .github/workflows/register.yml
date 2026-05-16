@@ -76,23 +76,38 @@ import json, random, sys
 count = int(sys.argv[1])
 domain = sys.argv[2]
 password = sys.argv[3]
+prefix = sys.argv[4]  # 格式: "fruit+animal" 或 "plant+metal" 等
 
-fruits = ["apple","mango","peach","berry","lemon","grape","melon","plum","kiwi","cherry"]
-animals = ["fox","cat","owl","bee","wolf","deer","hawk","lion","bear","duck"]
+categories = {
+    "fruit": ["apple","mango","peach","berry","lemon","grape","melon","plum","kiwi","cherry","pear","fig","lime","olive","guava","papaya","lychee","date","prune","coconut","banana","orange","apricot","avocado","blueberry","cranberry","dragonfruit","elderberry","grapefruit","jackfruit","kumquat","mandarin","nectarine","passion","persimmon","pomelo","quince","raisin","starfruit","tangerine","watermelon","boysenberry","cantaloupe","clementine","currant","damson","durian","feijoa","gooseberry","honeydew"],
+    "animal": ["fox","cat","owl","bee","wolf","deer","hawk","lion","bear","duck","frog","crab","swan","crow","dove","eagle","fish","goat","hare","ibis","jay","kite","lark","mole","newt","orca","puma","quail","robin","seal","toad","viper","wren","yak","zebra","ant","bat","cod","dog","eel","elk","emu","fly","gnu","hen","hog","imp","koi","lynx","moth","ox"],
+    "plant": ["rose","lily","fern","moss","sage","mint","iris","palm","vine","reed","oak","elm","ivy","aloe","basil","cedar","daisy","lotus","maple","orchid","pine","tulip","willow","bamboo","clover","daffodil","eucalyptus","gardenia","heather","jasmine","lavender","magnolia","nettle","oleander","peony","rosemary","sunflower","thyme","violet","wisteria","yarrow","zinnia","aster","begonia","camellia","dahlia","freesia","ginger","holly","juniper"],
+    "metal": ["iron","gold","zinc","lead","tin","ruby","jade","onyx","opal","pearl","amber","brass","steel","chrome","cobalt","copper","nickel","silver","bronze","platinum","titanium","mercury","radium","barium","cesium","helium","iodine","neon","argon","boron","carbon","lithium","sodium","sulfur","silicon","calcium","magnesium","aluminum","potassium","manganese","vanadium","gallium","germanium","arsenic","selenium","bromine","krypton","zirconium","niobium","molybdenum"],
+}
+
+parts = prefix.split("+") if "+" in prefix else ["fruit", "animal"]
+cat1 = parts[0].strip().lower()
+cat2 = parts[1].strip().lower() if len(parts) > 1 else "animal"
+pool1 = categories.get(cat1, categories["fruit"])
+pool2 = categories.get(cat2, categories["animal"])
 
 accounts = []
+used = set()
 for i in range(count):
-    word1 = random.choice(fruits)
-    word2 = random.choice(animals)
-    num = random.randint(10, 99)
-    local = f"{word1}{num}{word2}"
-    name = f"user_{local}"
-    accounts.append({"sequence":str(i+1),"seed":local,"name":name,"provider":"wucur","username":f"{local}@{domain}","password":password})
+    while True:
+        w1 = random.choice(pool1)
+        w2 = random.choice(pool2)
+        n = random.randint(0, 9)
+        local = f"{w1}{n}{w2}"
+        if local not in used and len(local) <= 16:
+            used.add(local)
+            break
+    accounts.append({"sequence":str(i+1),"seed":local,"name":f"u_{local}","provider":"wucur","username":f"{local}@{domain}","password":password})
 
 print(json.dumps(accounts, ensure_ascii=False, indent=2))
 "@
         $pyScript | Out-File -FilePath gen_accounts.py -Encoding utf8
-        $output = uv run python gen_accounts.py $env:REGISTER_COUNT $env:EMAIL_DOMAIN $env:REG_PASSWORD
+        $output = uv run python gen_accounts.py $env:REGISTER_COUNT $env:EMAIL_DOMAIN $env:REG_PASSWORD $env:EMAIL_PREFIX
         $output | Out-File -FilePath artifacts/generated_accounts.json -Encoding utf8
         echo $output
         echo "[SUCCESS] Generated $env:REGISTER_COUNT account(s)"
