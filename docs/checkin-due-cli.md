@@ -6,7 +6,7 @@
 2. 构造仓库
 3. 调用 `CheckinDueService`
 
-它不包含签到规则本身，规则仍然留在 `scripts/checkin_due_service.py` 和 `scripts/checkin_due_domain.py`。
+它不包含签到规则本身，规则分别留在 `core/domain.py`、`core/application/check_due_accounts_use_case.py`、`adapters/checkin/checkin_due_service.py` 和 `adapters/persistence/sqlite/checkin_due_repository.py` 里。
 
 如果你刚拉完代码后提示 `program not found`，先执行一次 `uv sync`，让新的 console script 安装到环境里。
 

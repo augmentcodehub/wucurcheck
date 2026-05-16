@@ -330,24 +330,18 @@ uv run wucur help
 uv run wucur help export
 ```
 
-如果你更喜欢旧路径，也可以继续用：
-
-```bash
-uv run scripts/wucur.py help
-```
-
 如果你还需要批量或半批量注册账号，统一入口也可以直接调用：
 
 ```bash
 uv run wucur register --file one-account.json --skip-checkin
 ```
 
-旧的 `scripts/*.py` 入口仍然保留，主要用于兼容现有流程。
+旧的 `scripts/*.py` 入口已移除，现有流程改用 `wucur`、`site_cli` 和 `checkin.py`。
 
 如果你更习惯按单个脚本执行，仓库里也保留了这些独立脚本：
 
-- [scripts/register_wucur.py](../scripts/register_wucur.py)
-- [scripts/register_one_account.py](../scripts/register_one_account.py)
+- [cli/register_wucur.py](../python/src/cli/register_wucur.py)
+- [tools/register/register_one_account.py](../python/src/tools/register/register_one_account.py)
 
 它的默认流程是：
 
@@ -363,25 +357,25 @@ uv run wucur register --file one-account.json --skip-checkin
 ### 基本用法
 
 ```bash
-python scripts/register_wucur.py --username your_email@example.com --password your_password
+uv run wucur register-wucur --username your_email@example.com --password your_password
 ```
 
 如果你希望写入自定义显示名称：
 
 ```bash
-python scripts/register_wucur.py --name "账号1" --username your_email@example.com --password your_password
+uv run wucur register-wucur --name "账号1" --username your_email@example.com --password your_password
 ```
 
 ### 只注册并登录，不执行签到
 
 ```bash
-python scripts/register_wucur.py --username your_email@example.com --password your_password --skip-checkin
+uv run wucur register-wucur --username your_email@example.com --password your_password --skip-checkin
 ```
 
 ### 输出 JSON 结果
 
 ```bash
-python scripts/register_wucur.py --username your_email@example.com --password your_password --json
+uv run wucur register-wucur --username your_email@example.com --password your_password --json
 ```
 
 ### 本地输出文件
@@ -430,13 +424,13 @@ accounts.json
 如果你已经有一组账号 JSON，希望直接执行单账号注册，推荐优先使用文件方式：
 
 ```bash
-uv run scripts/register_one_account.py --file one-account.json --skip-checkin
+uv run wucur register --file one-account.json --skip-checkin
 ```
 
 也支持标准输入：
 
 ```bash
-cat one-account.json | uv run scripts/register_one_account.py --stdin --skip-checkin
+cat one-account.json | uv run wucur register --stdin --skip-checkin
 ```
 
 它会明确打印：
@@ -459,7 +453,7 @@ cat one-account.json | uv run scripts/register_one_account.py --stdin --skip-che
 可以使用：
 
 ```bash
-uv run scripts/register_one_account_to_db.py --file one-account-checkin-next.json
+uv run wucur register-db --file one-account-checkin-next.json
 ```
 
 默认数据库文件：
@@ -473,7 +467,7 @@ wucur_accounts.sqlite3
 如果你要查看最近注册的账号、密码、注册时间和余额：
 
 ```bash
-uv run scripts/query_wucur_accounts_db.py
+uv run wucur query
 ```
 
 默认显示最近 `20` 条。
@@ -481,7 +475,7 @@ uv run scripts/query_wucur_accounts_db.py
 如果你要指定条数：
 
 ```bash
-uv run scripts/query_wucur_accounts_db.py --limit 50
+uv run wucur query --limit 50
 ```
 
 ### 导出两种格式
@@ -494,7 +488,7 @@ uv run scripts/query_wucur_accounts_db.py --limit 50
 可以使用：
 
 ```bash
-uv run scripts/export_wucur_accounts.py
+uv run wucur export
 ```
 
 默认会生成：
@@ -507,7 +501,7 @@ accounts.csv
 如果你还想把 GitHub Secrets 的 JSON 同时打印到终端：
 
 ```bash
-uv run scripts/export_wucur_accounts.py --stdout-json
+uv run wucur export --stdout-json
 ```
 
 ### 一条命令跑完整本地流程
@@ -523,16 +517,16 @@ uv run scripts/export_wucur_accounts.py --stdout-json
 可以使用：
 
 ```bash
-uv run scripts/run_wucur_pipeline.py --sequence 15
+uv run wucur pipeline --sequence 15
 ```
 
 ## 附：规则生成器与注册包装器
 
 如果你希望把“账号规则生成”和“实际注册”解耦，仓库里现在分成两层：
 
-- [scripts/account_rule_engine.py](../scripts/account_rule_engine.py)
-- [scripts/generate_accounts.py](../scripts/generate_accounts.py)
-- [scripts/register_wucur_wrapper.py](../scripts/register_wucur_wrapper.py)
+- [tools/account_generation/account_rule_engine.py](../python/src/tools/account_generation/account_rule_engine.py)
+- [tools/account_generation/generate_accounts.py](../python/src/tools/account_generation/generate_accounts.py)
+- [tools/account_generation/register_wucur_wrapper.py](../python/src/tools/account_generation/register_wucur_wrapper.py)
 
 用途分别是：
 
@@ -541,12 +535,12 @@ uv run scripts/run_wucur_pipeline.py --sequence 15
 2. `generate_accounts.py`
    只生成账号，不调用注册
 3. `register_wucur_wrapper.py`
-   生成 1 个账号后，调用底层 [scripts/register_wucur.py](../scripts/register_wucur.py)
+   生成 1 个账号后，调用底层 [cli/register_wucur.py](../python/src/cli/register_wucur.py)
 
 ### 第一步：生成配置文件
 
 ```bash
-python scripts/generate_accounts.py --init-config
+uv run wucur generate --init-config
 ```
 
 执行后会生成：
@@ -602,7 +596,7 @@ register_wucur_wrapper.json
 ### 第三步：只生成账号，不注册
 
 ```bash
-python scripts/generate_accounts.py --stdout
+uv run wucur generate --stdout
 ```
 
 它会按规则生成多组账号，并输出到：
@@ -614,7 +608,7 @@ python scripts/generate_accounts.py --stdout
 ### 第四步：生成 1 组并调用注册脚本
 
 ```bash
-python scripts/register_wucur_wrapper.py
+uv run wucur register-wrapper
 ```
 
 它会自动生成类似：
@@ -627,13 +621,13 @@ python scripts/register_wucur_wrapper.py
 ### 自定义配置文件路径
 
 ```bash
-python scripts/generate_accounts.py --config my-register-rule.json --stdout
+uv run wucur generate --config my-register-rule.json --stdout
 ```
 
 或：
 
 ```bash
-python scripts/register_wucur_wrapper.py --config my-register-rule.json
+uv run wucur register-wrapper --config my-register-rule.json
 ```
 
 ### 正则规则示例
