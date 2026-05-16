@@ -11,6 +11,8 @@
 
 如果你只需要配置 `wucur` 站点，请直接看专用教程：[docs/wucur-github-checkin-guide.md](./docs/wucur-github-checkin-guide.md)。
 
+如果你想先看重构和云端部署设计，请看：[docs/architecture-design.md](./docs/architecture-design.md)。
+
 推荐搭配使用[Auo](https://github.com/millylee/auo)，支持任意 Claude Code Token 切换的工具。
 
 **维护开源不易，如果本项目帮助到了你，请帮忙点个 Star，谢谢!**

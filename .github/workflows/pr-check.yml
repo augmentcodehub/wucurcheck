@@ -103,7 +103,7 @@ jobs:
         continue-on-error: true
         run: |
           echo "## Pytest 测试" >> $GITHUB_STEP_SUMMARY
-          uv run pytest tests/ -v --cov=. --cov-report=term --cov-report=xml --cov-report=html 2>&1 | tee pytest.log
+          uv run pytest python/tests/ -v --cov=. --cov-report=term --cov-report=xml --cov-report=html 2>&1 | tee pytest.log
           if [ $? -eq 0 ]; then
             echo "✅ 所有测试通过" >> $GITHUB_STEP_SUMMARY
             echo "status=success" >> $GITHUB_OUTPUT

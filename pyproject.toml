@@ -11,7 +11,8 @@ dependencies = [
 
 [project.scripts]
 wucur = "wucur_cli.cli:main"
-checkin-due = "scripts.checkin_due_cli:main"
+checkin-due = "cli.checkin_due_cli:main"
+site_cli = "cli.site_cli:main"
 
 [build-system]
 requires = ["setuptools>=68", "wheel"]
@@ -24,8 +25,8 @@ package = true
 py-modules = ["checkin"]
 
 [tool.setuptools.packages.find]
-where = ["."]
-include = ["scripts*", "utils*", "wucur_cli*"]
+where = ["python/src"]
+include = ["adapters*", "cli*", "core*", "scripts*", "tools*", "utils*", "wucur_cli*"]
 
 [dependency-groups]
 dev = [
@@ -70,22 +71,23 @@ strict_equality = true
 ignore_missing_imports = true
 
 [tool.bandit]
-exclude_dirs = ["tests", ".venv", "venv"]
+exclude_dirs = ["python/tests", ".venv", "venv"]
 skips = ["B101", "B601"]
 
 [tool.bandit.assert_used]
 skips = ["*_test.py", "test_*.py"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["python/tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+cache_dir = "python/artifacts/test-cache"
 addopts = [
   "--cov=.",
   "--cov-report=term-missing",
-  "--cov-report=html",
-  "--cov-report=xml",
+  "--cov-report=html:python/artifacts/htmlcov",
+  "--cov-report=xml:python/artifacts/coverage.xml",
   "--cov-branch",
   "-v"
 ]
@@ -94,7 +96,7 @@ asyncio_mode = "auto"
 [tool.coverage.run]
 source = ["."]
 omit = [
-  "tests/*",
+  "python/tests/*",
   ".venv/*",
   "venv/*",
   "*/site-packages/*"
