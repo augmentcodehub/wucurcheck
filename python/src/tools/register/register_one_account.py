@@ -27,7 +27,6 @@ except Exception:  # nosec B110
 
 LOGGER = get_logger('tools.register.register_one_account')
 
-
 def load_account_from_json_text(text: str) -> dict:
 	try:
 		data = json.loads(text)
@@ -96,9 +95,9 @@ def run_register(account: dict[str, str], skip_checkin: bool, json_output: bool)
 
 	result = subprocess.run(command, check=False)
 	if result.returncode == 0:
-		print('[SUCCESS] Account registration flow completed')
+		LOGGER.info('Account registration flow completed')
 	else:
-		print(f'[FAILED] Account registration flow failed with exit code {result.returncode}')
+		LOGGER.error('Account registration flow failed', extra={'exit_code': result.returncode})
 	return result.returncode
 
 

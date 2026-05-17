@@ -11,6 +11,9 @@ import time
 import httpx
 
 from utils.config import AccountConfig
+from utils.logger import get_logger
+
+log = get_logger('adapters.http.wucur_client')
 
 
 BASE_URL = 'http://wucur.com:6543'
@@ -115,11 +118,11 @@ def extract_login_user_id_from_payload(data: object) -> str | None:
 
 def login_with_bearer_token(client: httpx.Client, account_name: str, provider_config, account: AccountConfig) -> str | None:
 	if not account.username or not account.password:
-		print(f'[FAILED] {account_name}: Missing username/password for bearer login')
+		log.error('Missing username/password for bearer login', extra={'account': account_name})
 		return None
 
 	if not provider_config.login_api_path:
-		print(f'[FAILED] {account_name}: Provider "{provider_config.name}" missing login_api_path')
+		log.error('Provider missing login_api_path', extra={'account': account_name, 'provider': provider_config.name})
 		return None
 
 	login_headers = {
@@ -134,29 +137,29 @@ def login_with_bearer_token(client: httpx.Client, account_name: str, provider_co
 	try:
 		response = client.post(login_url, headers=login_headers, json=build_login_payload(account), timeout=30)
 	except Exception as e:
-		print(f'[FAILED] {account_name}: Login request failed - {str(e)[:50]}...')
+		log.error('Login request failed - str(e)[:50]...', extra={'account': account_name})
 		return None
 
 	if response.status_code != 200:
-		print(f'[FAILED] {account_name}: Login failed - HTTP {response.status_code}')
+		log.error('Login failed - HTTP response.status_code', extra={'account': account_name})
 		return None
 
 	token = extract_token_from_login_response(response)
 	if not token:
-		print(f'[FAILED] {account_name}: Login succeeded but token was not found')
+		log.error('Login succeeded but token was not found', extra={'account': account_name})
 		return None
 
-	print(f'[SUCCESS] {account_name}: Bearer token acquired')
+	log.info('Bearer token acquired', extra={'account': account_name})
 	return token
 
 
 def login_with_session(client: httpx.Client, account_name: str, provider_config, account: AccountConfig) -> str | None:
 	if not account.username or not account.password:
-		print(f'[FAILED] {account_name}: Missing username/password for password session login')
+		log.error('Missing username/password for password session login', extra={'account': account_name})
 		return None
 
 	if not provider_config.login_api_path:
-		print(f'[FAILED] {account_name}: Provider "{provider_config.name}" missing login_api_path')
+		log.error('Provider missing login_api_path', extra={'account': account_name, 'provider': provider_config.name})
 		return None
 
 	login_headers = {
@@ -171,30 +174,30 @@ def login_with_session(client: httpx.Client, account_name: str, provider_config,
 	try:
 		response = client.post(login_url, headers=login_headers, json=build_login_payload(account), timeout=30)
 	except Exception as e:
-		print(f'[FAILED] {account_name}: Login request failed - {str(e)[:50]}...')
+		log.error('Login request failed - str(e)[:50]...', extra={'account': account_name})
 		return None
 
 	if response.status_code != 200:
-		print(f'[FAILED] {account_name}: Login failed - HTTP {response.status_code}')
+		log.error('Login failed - HTTP response.status_code', extra={'account': account_name})
 		return None
 
 	try:
 		result = response.json()
 	except json.JSONDecodeError:
-		print(f'[FAILED] {account_name}: Login failed - invalid JSON response')
+		log.error('Login failed - invalid JSON response', extra={'account': account_name})
 		return None
 
 	if not result.get('success'):
 		error_msg = result.get('message', 'Unknown error')
-		print(f'[FAILED] {account_name}: Login failed - {error_msg}')
+		log.error('Login failed - error_msg', extra={'account': account_name})
 		return None
 
 	if 'session' not in client.cookies:
-		print(f'[FAILED] {account_name}: Login succeeded but session cookie was not found')
+		log.error('Login succeeded but session cookie was not found', extra={'account': account_name})
 		return None
 
 	user_id = extract_login_user_id(response)
-	print(f'[SUCCESS] {account_name}: Session login successful')
+	log.info('Session login successful', extra={'account': account_name})
 	return user_id
 
 
@@ -266,7 +269,7 @@ def register_account(client: httpx.Client, username: str, password: str) -> dict
 				return {'success': False, 'message': f'HTTP {response.status_code}', 'raw': data}
 			return data
 
-		print(f'[WARN] Register transient failure, retrying ({attempt}/3): HTTP {response.status_code}, {raw_message}')
+		log.warning('Register transient failure, retrying ({attempt}/3): HTTP {response.status_code}, {raw_message}')
 		time.sleep(attempt)
 
 	return last_result if isinstance(last_result, dict) else {'success': False, 'message': 'Unknown register failure'}
