@@ -1,13 +1,19 @@
 name = "worker-dashboard"
 main = "src/index.js"
 compatibility_date = "2024-12-01"
+account_id = "34d0f0b38fb6c0bd4d3a8f76b1164b2e"
 
 [vars]
 ADMIN_USER = "admin"
-# Set these via `wrangler secret put`:
-# ADMIN_PASS, GITHUB_TOKEN, CALLBACK_SECRET, SESSION_SECRET
+ADMIN_PASS = "kiro"
+CALLBACK_SECRET = "test_secret"
+GITHUB_REPO = "augmentcodehub/wucurcheck"
+GITHUB_WORKFLOW = "checkin.yml"
 
 [[kv_namespaces]]
 binding = "KV"
-id = "YOUR_KV_NAMESPACE_ID"
-preview_id = "YOUR_KV_NAMESPACE_ID"
+id = "937c4aa1f8ea4c219117d44f13dbe9cc"
+preview_id = "937c4aa1f8ea4c219117d44f13dbe9cc"
+
+[triggers]
+crons = ["0 * * * *"]
