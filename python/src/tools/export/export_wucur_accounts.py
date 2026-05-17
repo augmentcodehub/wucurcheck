@@ -14,6 +14,13 @@ import sqlite3
 import sys
 from pathlib import Path
 
+try:
+	from utils.logger import get_logger
+except ImportError:
+	import logging; get_logger = lambda n: logging.getLogger(n)
+
+log = get_logger('tools.export_wucur_accounts')
+
 ROOT_DIR = Path(__file__).resolve().parents[2]
 if str(ROOT_DIR) not in sys.path:
 	sys.path.insert(0, str(ROOT_DIR))
@@ -111,7 +118,7 @@ def main(argv: list[str] | None = None) -> int:
 
 	db_path = Path(args.db)
 	if not db_path.exists():
-		print(f'[FAILED] Database file not found: {db_path}')
+		log.error('Database file not found: {db_path}')
 		return 1
 
 	conn = connect_db(db_path)
@@ -122,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
 		conn.close()
 
 	if not rows:
-		print('[INFO] No account records found')
+		log.info('No account records found')
 		return 0
 
 	json_payload = to_github_secret_format(rows)
@@ -132,9 +139,9 @@ def main(argv: list[str] | None = None) -> int:
 	write_json_output(json_output_path, json_payload)
 	write_csv_output(csv_output_path, rows)
 
-	print(f'[SUCCESS] Exported {len(rows)} record(s)')
-	print(f'[INFO] github_json: {json_output_path}')
-	print(f'[INFO] csv_backup: {csv_output_path}')
+	log.info('Exported {len(rows)} record(s)')
+	log.info('github_json: {json_output_path}')
+	log.info('csv_backup: {csv_output_path}')
 
 	if args.stdout_json:
 		print(json.dumps(json_payload, ensure_ascii=False, indent=2))

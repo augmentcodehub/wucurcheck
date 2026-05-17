@@ -16,6 +16,9 @@ from playwright.async_api import async_playwright
 
 from utils.config import AccountConfig, AppConfig, load_accounts_config
 from utils.notify import notify
+from utils.logger import get_logger
+
+log = get_logger('cli.checkin')
 
 load_dotenv()
 
@@ -45,7 +48,7 @@ def save_balance_hash(balance_hash):
 		with open(BALANCE_HASH_FILE, 'w', encoding='utf-8') as f:
 			f.write(balance_hash)
 	except Exception as e:
-		print(f'Warning: Failed to save balance hash: {e}')
+		log.warning('Failed to save balance hash', extra={'error': str(e)})
 
 
 def generate_balance_hash(balances):
@@ -136,7 +139,7 @@ def extract_login_user_id(response: httpx.Response) -> str | None:
 
 async def get_waf_cookies_with_playwright(account_name: str, login_url: str, required_cookies: list[str]):
 	"""使用 Playwright 获取 WAF cookies（隐私模式）"""
-	print(f'[PROCESSING] {account_name}: Starting browser to get WAF cookies...')
+	log.info('Starting browser to get WAF cookies...', extra={'account': account_name})
 
 	async with async_playwright() as p:
 		import tempfile
@@ -159,7 +162,7 @@ async def get_waf_cookies_with_playwright(account_name: str, login_url: str, req
 			page = await context.new_page()
 
 			try:
-				print(f'[PROCESSING] {account_name}: Access login page to get initial cookies...')
+				log.info('Access login page to get initial cookies...', extra={'account': account_name})
 
 				await page.goto(login_url, wait_until='networkidle')
 
@@ -177,23 +180,23 @@ async def get_waf_cookies_with_playwright(account_name: str, login_url: str, req
 					if cookie_name in required_cookies and cookie_value is not None:
 						waf_cookies[cookie_name] = cookie_value
 
-				print(f'[INFO] {account_name}: Got {len(waf_cookies)} WAF cookies')
+				log.info('Got {len(waf_cookies)} WAF cookies', extra={'account': account_name})
 
 				missing_cookies = [c for c in required_cookies if c not in waf_cookies]
 
 				if missing_cookies:
-					print(f'[FAILED] {account_name}: Missing WAF cookies: {missing_cookies}')
+					log.error('Missing WAF cookies: {missing_cookies}', extra={'account': account_name})
 					await context.close()
 					return None
 
-				print(f'[SUCCESS] {account_name}: Successfully got all WAF cookies')
+				log.info('Successfully got all WAF cookies', extra={'account': account_name})
 
 				await context.close()
 
 				return waf_cookies
 
 			except Exception as e:
-				print(f'[FAILED] {account_name}: Error occurred while getting WAF cookies: {e}')
+				log.error('Error occurred while getting WAF cookies: ', extra={'account': account_name, 'error': str(e)})
 				await context.close()
 				return None
 
@@ -223,11 +226,11 @@ def get_user_info(client, headers, user_info_url: str):
 def login_with_bearer_token(client: httpx.Client, account_name: str, provider_config, account: AccountConfig) -> str | None:
 	"""通过账号密码登录并提取 Bearer token"""
 	if not account.username or not account.password:
-		print(f'[FAILED] {account_name}: Missing username/password for bearer login')
+		log.error('Missing username/password for bearer login', extra={'account': account_name})
 		return None
 
 	if not provider_config.login_api_path:
-		print(f'[FAILED] {account_name}: Provider "{provider_config.name}" missing login_api_path')
+		log.error('Provider "{provider_config.name}" missing login_api_path', extra={'account': account_name})
 		return None
 
 	login_headers = {
@@ -242,30 +245,30 @@ def login_with_bearer_token(client: httpx.Client, account_name: str, provider_co
 	try:
 		response = client.post(login_url, headers=login_headers, json=build_login_payload(account), timeout=30)
 	except Exception as e:
-		print(f'[FAILED] {account_name}: Login request failed - {str(e)[:50]}...')
+		log.error('Login request failed', extra={'account': account_name, 'error': str(e)[:50]})
 		return None
 
 	if response.status_code != 200:
-		print(f'[FAILED] {account_name}: Login failed - HTTP {response.status_code}')
+		log.error('Login failed', extra={'account': account_name, 'status': response.status_code})
 		return None
 
 	token = extract_token_from_login_response(response)
 	if not token:
-		print(f'[FAILED] {account_name}: Login succeeded but token was not found')
+		log.error('Login succeeded but token was not found', extra={'account': account_name})
 		return None
 
-	print(f'[SUCCESS] {account_name}: Bearer token acquired')
+	log.info('Bearer token acquired', extra={'account': account_name})
 	return token
 
 
 def login_with_session(client: httpx.Client, account_name: str, provider_config, account: AccountConfig) -> str | None:
 	"""通过账号密码登录并复用服务端设置的 session cookie"""
 	if not account.username or not account.password:
-		print(f'[FAILED] {account_name}: Missing username/password for password session login')
+		log.error('Missing username/password for password session login', extra={'account': account_name})
 		return None
 
 	if not provider_config.login_api_path:
-		print(f'[FAILED] {account_name}: Provider "{provider_config.name}" missing login_api_path')
+		log.error('Provider "{provider_config.name}" missing login_api_path', extra={'account': account_name})
 		return None
 
 	login_headers = {
@@ -280,30 +283,30 @@ def login_with_session(client: httpx.Client, account_name: str, provider_config,
 	try:
 		response = client.post(login_url, headers=login_headers, json=build_login_payload(account), timeout=30)
 	except Exception as e:
-		print(f'[FAILED] {account_name}: Login request failed - {str(e)[:50]}...')
+		log.error('Login request failed', extra={'account': account_name, 'error': str(e)[:50]})
 		return None
 
 	if response.status_code != 200:
-		print(f'[FAILED] {account_name}: Login failed - HTTP {response.status_code}')
+		log.error('Login failed', extra={'account': account_name, 'status': response.status_code})
 		return None
 
 	try:
 		result = response.json()
 	except json.JSONDecodeError:
-		print(f'[FAILED] {account_name}: Login failed - invalid JSON response')
+		log.error('Login failed - invalid JSON response', extra={'account': account_name})
 		return None
 
 	if not result.get('success'):
 		error_msg = result.get('message', 'Unknown error')
-		print(f'[FAILED] {account_name}: Login failed - {error_msg}')
+		log.error('Login failed', extra={'account': account_name, 'error_msg': error_msg})
 		return None
 
 	if 'session' not in client.cookies:
-		print(f'[FAILED] {account_name}: Login succeeded but session cookie was not found')
+		log.error('Login succeeded but session cookie was not found', extra={'account': account_name})
 		return None
 
 	user_id = extract_login_user_id(response)
-	print(f'[SUCCESS] {account_name}: Session login successful')
+	log.info('Session login successful', extra={'account': account_name})
 	return user_id
 
 
@@ -315,17 +318,17 @@ async def prepare_cookies(account_name: str, provider_config, user_cookies: dict
 		login_url = f'{provider_config.domain}{provider_config.login_path}'
 		waf_cookies = await get_waf_cookies_with_playwright(account_name, login_url, provider_config.waf_cookie_names)
 		if not waf_cookies:
-			print(f'[FAILED] {account_name}: Unable to get WAF cookies')
+			log.error('Unable to get WAF cookies', extra={'account': account_name})
 			return None
 	else:
-		print(f'[INFO] {account_name}: Bypass WAF not required, using user cookies directly')
+		log.info('Bypass WAF not required, using user cookies directly', extra={'account': account_name})
 
 	return {**waf_cookies, **user_cookies}
 
 
 def execute_check_in(client, account_name: str, provider_config, headers: dict):
 	"""执行签到请求"""
-	print(f'[NETWORK] {account_name}: Executing check-in')
+	log.info('Executing check-in', extra={'account': account_name})
 
 	checkin_headers = headers.copy()
 	checkin_headers.update({'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest'})
@@ -333,33 +336,33 @@ def execute_check_in(client, account_name: str, provider_config, headers: dict):
 	sign_in_url = f'{provider_config.domain}{provider_config.sign_in_path}'
 	response = client.post(sign_in_url, headers=checkin_headers, timeout=30)
 
-	print(f'[RESPONSE] {account_name}: Response status code {response.status_code}')
+	log.info('Response status code', extra={'account': account_name, 'status': response.status_code})
 
 	if response.status_code == 200:
 		try:
 			result = response.json()
 			if result.get('ret') == 1 or result.get('code') == 0 or result.get('success'):
-				print(f'[SUCCESS] {account_name}: Check-in successful!')
+				log.info('Check-in successful!', extra={'account': account_name})
 				return True
 			else:
 				error_msg = result.get('msg', result.get('message', 'Unknown error'))
 				# 检查是否是"已经签到过"的情况，这种情况也算成功
 				already_checked_keywords = ['已经签到', '已签到', '重复签到', 'already checked', 'already signed']
 				if any(keyword in error_msg.lower() for keyword in already_checked_keywords):
-					print(f'[SUCCESS] {account_name}: Already checked in today')
+					log.info('Already checked in today', extra={'account': account_name})
 					return True
-				print(f'[FAILED] {account_name}: Check-in failed - {error_msg}')
+				log.error('Check-in failed', extra={'account': account_name, 'error_msg': error_msg})
 				return False
 		except json.JSONDecodeError:
 			# 如果不是 JSON 响应，检查是否包含成功标识
 			if 'success' in response.text.lower():
-				print(f'[SUCCESS] {account_name}: Check-in successful!')
+				log.info('Check-in successful!', extra={'account': account_name})
 				return True
 			else:
-				print(f'[FAILED] {account_name}: Check-in failed - Invalid response format')
+				log.error('Check-in failed - Invalid response format', extra={'account': account_name})
 				return False
 	else:
-		print(f'[FAILED] {account_name}: Check-in failed - HTTP {response.status_code}')
+		log.error('Check-in failed', extra={'account': account_name, 'status': response.status_code})
 		return False
 
 
@@ -415,18 +418,18 @@ def format_check_in_notification(detail: dict) -> str:
 async def check_in_account(account: AccountConfig, account_index: int, app_config: AppConfig):
 	"""为单个账号执行签到操作"""
 	account_name = account.get_display_name(account_index)
-	print(f'\n[PROCESSING] Starting to process {account_name}')
+	log.info('Processing account', extra={'account': account_name})
 
 	provider_config = app_config.get_provider(account.provider)
 	if not provider_config:
-		print(f'[FAILED] {account_name}: Provider "{account.provider}" not found in configuration')
+		log.error('Provider "{account.provider}" not found in configuration', extra={'account': account_name})
 		return False, None
 
-	print(f'[INFO] {account_name}: Using provider "{account.provider}" ({provider_config.domain})')
+	log.info('Using provider "{account.provider}" ({provider_config.domain})', extra={'account': account_name})
 
 	user_cookies = parse_cookies(account.cookies)
 	if not provider_config.uses_bearer_login() and not provider_config.uses_password_session() and not user_cookies:
-		print(f'[FAILED] {account_name}: Invalid configuration format')
+		log.error('Invalid configuration format', extra={'account': account_name})
 		return False, None
 
 	client = httpx.Client(http2=True, timeout=30.0)
@@ -475,9 +478,9 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 			user_info_url = f'{provider_config.domain}{provider_config.user_info_path}'
 			user_info_before = get_user_info(client, headers, user_info_url)
 			if user_info_before and user_info_before.get('success'):
-				print(user_info_before['display'])
+				log.info('User info', extra={'account': account_name, 'display': user_info_before['display']})
 			elif user_info_before:
-				print(user_info_before.get('error', 'Unknown error'))
+				log.warning('User info error', extra={'account': account_name, 'error': user_info_before.get('error', 'Unknown error')})
 
 		if provider_config.needs_manual_check_in():
 			success = execute_check_in(client, account_name, provider_config, headers)
@@ -486,14 +489,14 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 				user_info_after = get_user_info(client, headers, user_info_url)
 			return success, user_info_before, user_info_after
 		else:
-			print(f'[INFO] {account_name}: Check-in completed automatically (triggered by user info request)')
+			log.info('Check-in completed automatically (triggered by user info request)', extra={'account': account_name})
 			# 自动签到的情况，再次获取用户信息
 			if user_info_url:
 				user_info_after = get_user_info(client, headers, user_info_url)
 			return True, user_info_before, user_info_after
 
 	except Exception as e:
-		print(f'[FAILED] {account_name}: Error occurred during check-in process - {str(e)[:50]}...')
+		log.error('Error occurred during check-in process', extra={'account': account_name, 'error': str(e)[:50]})
 		return False, None, None
 	finally:
 		client.close()
@@ -501,18 +504,18 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 
 async def main():
 	"""主函数"""
-	print('[SYSTEM] AnyRouter.top multi-account auto check-in script started (using Playwright)')
-	print(f'[TIME] Execution time: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+	log.info('Checkin script started')
+	log.info('Execution started', extra={'time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')})
 
 	app_config = AppConfig.load_from_env()
-	print(f'[INFO] Loaded {len(app_config.providers)} provider configuration(s)')
+	log.info('Providers loaded', extra={'count': len(app_config.providers)})
 
 	accounts = load_accounts_config()
 	if not accounts:
-		print('[FAILED] Unable to load account configuration, program exits')
+		log.error('Unable to load account configuration')
 		sys.exit(1)
 
-	print(f'[INFO] Found {len(accounts)} account configurations')
+	log.info('Accounts loaded', extra={'count': len(accounts)})
 
 	last_balance_hash = load_balance_hash()
 
@@ -537,7 +540,7 @@ async def main():
 				should_notify_this_account = True
 				need_notify = True
 				account_name = account.get_display_name(i)
-				print(f'[NOTIFY] {account_name} failed, will send notification')
+				log.info('Account failed, will notify', extra={'account': account_name})
 
 			# 存储签到前后的余额信息
 			if user_info_after and user_info_after.get('success'):
@@ -589,7 +592,7 @@ async def main():
 
 		except Exception as e:
 			account_name = account.get_display_name(i)
-			print(f'[FAILED] {account_name} processing exception: {e}')
+			log.error('Processing exception', extra={'account': account_name, 'error': str(e)})
 			need_notify = True  # 异常也需要通知
 			notification_content.append(f'[FAIL] {account_name} exception: {str(e)[:50]}...')
 
@@ -600,14 +603,14 @@ async def main():
 			# 首次运行
 			balance_changed = True
 			need_notify = True
-			print('[NOTIFY] First run detected, will send notification with current balances')
+			log.info('First run detected, will send notification with current balances')
 		elif current_balance_hash != last_balance_hash:
 			# 余额有变化
 			balance_changed = True
 			need_notify = True
-			print('[NOTIFY] Balance changes detected, will send notification')
+			log.info('Balance changes detected, will send notification')
 		else:
-			print('[INFO] No balance changes detected')
+			log.info('No balance changes detected')
 
 	# 为有余额变化的情况添加所有成功账号到通知内容
 	if balance_changed:
@@ -647,11 +650,11 @@ async def main():
 
 		notify_content = '\n\n'.join([time_info, '\n'.join(notification_content), '\n'.join(summary)])
 
-		print(notify_content)
+		log.info('Notification content', extra={'content_length': len(notify_content)})
 		notify.push_message('AnyRouter Check-in Alert', notify_content, msg_type='text')
-		print('[NOTIFY] Notification sent due to failures or balance changes')
+		log.info('Notification sent due to failures or balance changes')
 	else:
-		print('[INFO] All accounts successful and no balance changes detected, notification skipped')
+		log.info('All accounts successful and no balance changes detected, notification skipped')
 
 	# 设置退出码
 	sys.exit(0 if success_count > 0 else 1)
@@ -662,10 +665,10 @@ def run_main():
 	try:
 		asyncio.run(main())
 	except KeyboardInterrupt:
-		print('\n[WARNING] Program interrupted by user')
+		log.warning('Program interrupted by user')
 		sys.exit(1)
 	except Exception as e:
-		print(f'\n[FAILED] Error occurred during program execution: {e}')
+		log.error('Program execution error', extra={'error': str(e)})
 		sys.exit(1)
 
 

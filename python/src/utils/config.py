@@ -32,7 +32,7 @@ class ProviderConfig:
 			for item in self.waf_cookie_names:
 				name = '' if not item or not isinstance(item, str) else item.strip()
 				if not name:
-					print(f'[WARNING] Found invalid WAF cookie name: {item}')
+					log.warning('Found invalid WAF cookie name: {item}')
 					continue
 
 				required_waf_cookies.add(name)
@@ -164,7 +164,7 @@ class AppConfig:
 				providers_data = json.loads(providers_str)
 
 				if not isinstance(providers_data, dict):
-					print('[WARNING] PROVIDERS must be a JSON object, ignoring custom providers')
+					log.warning('PROVIDERS must be a JSON object, ignoring custom providers')
 					return cls(providers=providers)
 
 				# 解析自定义 providers,会覆盖默认配置
@@ -172,16 +172,14 @@ class AppConfig:
 					try:
 						providers[name] = ProviderConfig.from_dict(name, provider_data)
 					except Exception as e:
-						print(f'[WARNING] Failed to parse provider "{name}": {e}, skipping')
+						log.warning('Failed to parse provider "{name}": {e}, skipping')
 						continue
 
-				print(f'[INFO] Loaded {len(providers_data)} custom provider(s) from PROVIDERS environment variable')
+				log.info('Loaded {len(providers_data)} custom provider(s) from PROVIDERS environment variable')
 			except json.JSONDecodeError as e:
-				print(
-					f'[WARNING] Failed to parse PROVIDERS environment variable: {e}, using default configuration only'
-				)
+				log.info('[WARNING] Failed to parse PROVIDERS environment variable: {e}, using default configuration only')
 			except Exception as e:
-				print(f'[WARNING] Error loading PROVIDERS: {e}, using default configuration only')
+				log.warning('Error loading PROVIDERS: {e}, using default configuration only')
 
 		return cls(providers=providers)
 
@@ -234,35 +232,35 @@ def load_accounts_config() -> list[AccountConfig] | None:
 	"""从环境变量加载账号配置"""
 	accounts_str = os.getenv('ANYROUTER_ACCOUNTS')
 	if not accounts_str:
-		print('ERROR: ANYROUTER_ACCOUNTS environment variable not found')
+		log.error('ERROR: ANYROUTER_ACCOUNTS environment variable not found')
 		return None
 
 	try:
 		accounts_data = json.loads(accounts_str)
 
 		if not isinstance(accounts_data, list):
-			print('ERROR: Account configuration must use array format [{}]')
+			log.error('ERROR: Account configuration must use array format [{}]')
 			return None
 
 		accounts = []
 		for i, account_dict in enumerate(accounts_data):
 			if not isinstance(account_dict, dict):
-				print(f'ERROR: Account {i + 1} configuration format is incorrect')
+				log.error('ERROR: Account {i + 1} configuration format is incorrect')
 				return None
 
 			has_cookie_auth = 'cookies' in account_dict and 'api_user' in account_dict
 			has_password_auth = 'username' in account_dict and 'password' in account_dict
 			if not has_cookie_auth and not has_password_auth:
-				print(f'ERROR: Account {i + 1} must provide either (cookies, api_user) or (username, password)')
+				log.error('ERROR: Account {i + 1} must provide either (cookies, api_user) or (username, password)')
 				return None
 
 			if 'name' in account_dict and not account_dict['name']:
-				print(f'ERROR: Account {i + 1} name field cannot be empty')
+				log.error('ERROR: Account {i + 1} name field cannot be empty')
 				return None
 
 			accounts.append(AccountConfig.from_dict(account_dict, i))
 
 		return accounts
 	except Exception as e:
-		print(f'ERROR: Account configuration format is incorrect: {e}')
+		log.error('ERROR: Account configuration format is incorrect: {e}')
 		return None

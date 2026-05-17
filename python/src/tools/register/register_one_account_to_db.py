@@ -82,7 +82,7 @@ def run_register_json(account: dict[str, str], skip_checkin: bool) -> tuple[int,
 	try:
 		payload = json.loads(stdout_text)
 	except json.JSONDecodeError as exc:
-		print(f'[FAILED] Could not parse JSON result from cli/register_wucur.py: {exc}')
+		log.error('Could not parse JSON result from cli/register_wucur.py: {exc}')
 		return 1, None
 
 	return result.returncode, payload
@@ -140,7 +140,7 @@ def persist_success(account: dict[str, str], payload: dict, db_path: Path) -> No
 	finally:
 		conn.close()
 
-	print(f'[SUCCESS] SQLite record saved to {db_path}')
+	log.info('SQLite record saved to {db_path}')
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -166,7 +166,7 @@ def main(argv: list[str] | None = None) -> int:
 			account = load_account_from_json_text(args.json_input)
 		validated = validate_account(account)
 	except Exception as exc:
-		print(f'[FAILED] {exc}')
+		log.error('{exc}')
 		return 1
 
 	exit_code, payload = run_register_json(validated, skip_checkin=args.skip_checkin)
