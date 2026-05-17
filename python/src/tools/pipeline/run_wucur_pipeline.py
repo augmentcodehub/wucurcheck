@@ -13,6 +13,13 @@ import subprocess
 import sys
 from pathlib import Path
 
+try:
+	from utils.logger import get_logger
+except ImportError:
+	import logging; get_logger = lambda n: logging.getLogger(n)
+
+log = get_logger('tools.run_wucur_pipeline')
+
 TOOLS_DIR = Path(__file__).resolve().parents[1]
 MAKE_SCRIPT = TOOLS_DIR / 'account_generation' / 'make_wucur_test_account.py'
 REGISTER_DB_SCRIPT = TOOLS_DIR / 'register' / 'register_one_account_to_db.py'
@@ -27,13 +34,13 @@ except Exception:  # nosec B110
 
 
 def run_step(name: str, command: list[str]) -> int:
-	print(f'[STEP] {name}')
-	print(f'[CMD] {" ".join(command)}')
+	log.info('{name}')
+	log.info('{" ".join(command)}')
 	result = subprocess.run(command, check=False)
 	if result.returncode == 0:
-		print(f'[SUCCESS] {name}')
+		log.info('{name}')
 	else:
-		print(f'[FAILED] {name} exit_code={result.returncode}')
+		log.error('{name} exit_code={result.returncode}')
 	return result.returncode
 
 
@@ -90,12 +97,12 @@ def main(argv: list[str] | None = None) -> int:
 		if exit_code != 0:
 			return exit_code
 
-	print('[DONE] Pipeline completed successfully')
-	print(f'[INFO] test_account_file: {args.output}')
-	print(f'[INFO] sqlite_db: {args.db}')
-	print(f'[INFO] github_json: {args.json_output}')
-	print(f'[INFO] csv_backup: {args.csv_output}')
-	print('[INFO] next_query_command: uv run wucur query --limit 3')
+	log.info('Pipeline completed successfully')
+	log.info('test_account_file: {args.output}')
+	log.info('sqlite_db: {args.db}')
+	log.info('github_json: {args.json_output}')
+	log.info('csv_backup: {args.csv_output}')
+	log.info('next_query_command: uv run wucur query --limit 3')
 	return 0
 
 

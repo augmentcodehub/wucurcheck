@@ -152,9 +152,9 @@ class NotificationKit:
 		for name, func in notifications:
 			try:
 				func()
-				print(f'[{name}]: Message push successful!')
+				log.info('Message push successful', extra={'channel': name})
 			except Exception as e:
-				print(f'[{name}]: Message push failed! Reason: {str(e)}')
+				log.error('Message push failed', extra={'channel': name, 'error': str(e)})
 
 
 notify = NotificationKit()

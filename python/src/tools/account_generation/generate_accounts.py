@@ -11,6 +11,13 @@ import sys
 from pathlib import Path
 
 try:
+	from utils.logger import get_logger
+except ImportError:
+	import logging; get_logger = lambda n: logging.getLogger(n)
+
+log = get_logger('tools.generate_accounts')
+
+try:
 	from .account_rule_engine import generate_accounts, load_rule_config, write_example_rule_config
 except ImportError:  # pragma: no cover - direct script execution fallback
 	from account_rule_engine import generate_accounts, load_rule_config, write_example_rule_config
@@ -39,19 +46,19 @@ def main(argv: list[str] | None = None) -> int:
 
 	if args.init_config:
 		write_example_rule_config(config_path)
-		print(f'[SUCCESS] Example config written to {config_path}')
+		log.info('Example config written to {config_path}')
 		return 0
 
 	try:
 		config = load_rule_config(config_path)
 		accounts = generate_accounts(config)
 	except Exception as exc:
-		print(f'[FAILED] {exc}')
+		log.error('{exc}')
 		return 1
 
 	output_path.parent.mkdir(parents=True, exist_ok=True)
 	output_path.write_text(json.dumps(accounts, ensure_ascii=False, indent=2), encoding='utf-8')
-	print(f'[SUCCESS] Generated {len(accounts)} account(s) to {output_path}')
+	log.info('Generated {len(accounts)} account(s) to {output_path}')
 
 	if args.stdout:
 		print(json.dumps(accounts, ensure_ascii=False, indent=2))

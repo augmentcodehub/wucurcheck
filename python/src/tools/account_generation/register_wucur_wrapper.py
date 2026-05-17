@@ -13,6 +13,13 @@ import sys
 from pathlib import Path
 
 try:
+	from utils.logger import get_logger
+except ImportError:
+	import logging; get_logger = lambda n: logging.getLogger(n)
+
+log = get_logger('tools.register_wucur_wrapper')
+
+try:
 	from .account_rule_engine import generate_accounts, load_rule_config, write_example_rule_config
 except ImportError:  # pragma: no cover - direct script execution fallback
 	from account_rule_engine import generate_accounts, load_rule_config, write_example_rule_config
@@ -44,13 +51,9 @@ def run_register(account: dict[str, str], skip_checkin: bool, json_output: bool)
 	if json_output:
 		command.append('--json')
 
-	print('[INFO] Generated account:')
-	print(f'  sequence: {account["sequence"]}')
-	print(f'  seed: {account["seed"]}')
-	print(f'  name: {account["name"]}')
-	print(f'  username: {account["username"]}')
-	print(f'  password: {account["password"]}')
-	print('[INFO] Delegating to cli/register_wucur.py')
+	log.info('Generated account:')
+	log.info('Generated account', extra={'sequence': account['sequence'], 'username': account['username']})
+	log.info('Delegating to cli/register_wucur.py')
 
 	result = subprocess.run(command, check=False)
 	return result.returncode
@@ -69,22 +72,22 @@ def main(argv: list[str] | None = None) -> int:
 	if args.init_config:
 		config_path.parent.mkdir(parents=True, exist_ok=True)
 		write_example_rule_config(config_path)
-		print(f'[SUCCESS] Example config written to {config_path}')
+		log.info('Example config written to {config_path}')
 		return 0
 
 	try:
 		config = load_rule_config(config_path)
 		accounts = generate_accounts(config)
 	except Exception as exc:
-		print(f'[FAILED] {exc}')
+		log.error('{exc}')
 		return 1
 
 	if not accounts:
-		print('[FAILED] No accounts generated')
+		log.error('No accounts generated')
 		return 1
 
 	if args.index < 0 or args.index >= len(accounts):
-		print(f'[FAILED] index out of range: {args.index}, generated count: {len(accounts)}')
+		log.error('index out of range: {args.index}, generated count: {len(accounts)}')
 		return 1
 
 	skip_checkin = args.skip_checkin or config.skip_checkin
