@@ -1,5 +1,6 @@
 import { log } from "../lib/log.js";
 import { putAccount } from "../lib/store.js";
+import { releaseLock } from "../lib/trigger_lock.js";
 
 /**
  * POST /callback — GitHub Actions 完成后回调
@@ -27,16 +28,19 @@ export async function handleCallback(request, env) {
     await putAccount(env, data.username, {
       password: data.password || "",
       platform: data.platform || "",
-      status: "active",
-      last_result: "注册成功",
+      status: data.status || "active",
+      last_result: data.last_result || "注册成功",
     });
+    await releaseLock(env, `register:${data.username}`);
   } else if (action === "checkin" && data.username) {
     await putAccount(env, data.username, {
       balance: data.balance,
       checkin_time: data.checkin_time || new Date().toISOString(),
-      status: "active",
-      last_result: `签到成功${data.checkin_time ? ` ${data.checkin_time}` : ""}`,
+      status: data.status || "active",
+      last_result: data.last_result || `签到成功${data.checkin_time ? ` ${data.checkin_time}` : ""}`,
     });
+    await releaseLock(env, `checkin:${data.username}`);
+    await releaseLock(env, "checkin:_all");
   } else if (action === "batch_result" && Array.isArray(data.results)) {
     for (const item of data.results) {
       if (item.username) {
@@ -46,6 +50,7 @@ export async function handleCallback(request, env) {
         });
       }
     }
+    await releaseLock(env, "checkin:_all");
     log.info("batch updated", { count: data.results.length });
   }
 

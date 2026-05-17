@@ -43,11 +43,16 @@ export async function handleLogin(env, request) {
   await env.KV.put(`session:${token}`, user, { expirationTtl: SESSION_TTL });
   log.info("login success", { user });
 
+  const isLocal = new URL(request.url).hostname === "localhost";
+  const cookieFlags = isLocal
+    ? `Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_TTL}`
+    : `Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL}`;
+
   return new Response(null, {
     status: 302,
     headers: {
       Location: "/",
-      "Set-Cookie": `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Strict; Max-Age=${SESSION_TTL}`,
+      "Set-Cookie": `${SESSION_COOKIE}=${token}; ${cookieFlags}`,
     },
   });
 }

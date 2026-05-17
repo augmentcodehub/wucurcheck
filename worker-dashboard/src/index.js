@@ -6,6 +6,7 @@ import { log, setContext } from "./lib/log.js";
 import { handleLogin, handleLogout, authMiddleware } from "./auth.js";
 import { handleCallback } from "./pages/callback.js";
 import { apiTrigger } from "./pages/actions.js";
+import { triggerWorkflow } from "./lib/github.js";
 import { router } from "./router.js";
 
 export default {
@@ -38,5 +39,18 @@ export default {
       log.error("unhandled", { error: e.message, stack: e.stack?.substring(0, 300) });
       return new Response("Internal Server Error", { status: 500 });
     }
+  },
+
+  // 每小时检查一次，根据 KV 配置决定是否触发签到
+  async scheduled(event, env, ctx) {
+    setContext({ trigger: "cron", rid: crypto.randomUUID().slice(0, 8) });
+    const config = await env.KV.get("config:cron_hour", "json");
+    // 默认北京时间 8 点（UTC 0）
+    const hours = config || [0];
+    const currentHour = new Date().getUTCHours();
+    if (!hours.includes(currentHour)) return;
+    log.info("cron_triggered", { hour: currentHour });
+    const result = await triggerWorkflow(env, { action: "checkin", target: "", callbackUrl: "https://worker-dashboard.ouraihub.workers.dev/callback" });
+    log.info("cron_result", { ok: result.ok });
   },
 };

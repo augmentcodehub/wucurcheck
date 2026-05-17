@@ -1,10 +1,14 @@
-import { pageAccounts, apiAccounts } from "./pages/accounts.js";
+import { pageAccounts, apiAccounts, apiExportCsv } from "./pages/accounts.js";
 import { apiTrigger } from "./pages/actions.js";
+import { apiSettings } from "./pages/settings.js";
 
 const routes = [
   ["GET", "/", pageAccounts],
   ["GET", "/api/accounts", apiAccounts],
+  ["GET", "/api/export/csv", apiExportCsv],
   ["POST", "/api/trigger", apiTrigger],
+  ["GET", "/api/settings", apiSettings],
+  ["POST", "/api/settings", apiSettings],
 ];
 
 export async function router(path, method, request, env) {
