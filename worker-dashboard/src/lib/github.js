@@ -29,7 +29,7 @@ export async function triggerWorkflow(env, { action, target, callbackUrl, inputs
       count: inputs?.count || "10",
       email_prefix: inputs?.email_prefix || "fruit+animal",
       email_domain: inputs?.email_domain || "qq.com",
-      password: inputs?.password || "123Claude&Codex",
+      password: inputs?.password || "",
       callback_url: callbackUrl || "",
     };
   } else if (action === "checkin_unchecked") {
