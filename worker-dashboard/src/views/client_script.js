@@ -36,6 +36,28 @@ async function loadCron() {
   const d = await r.json();
   const sel = document.getElementById("cron-hours");
   (d.cron_hours||[]).forEach(h => { const opt = sel.querySelector('option[value="'+h+'"]'); if(opt) opt.selected=true; });
+  renderUsers(d.users || []);
+}
+function renderUsers(users) {
+  const el = document.getElementById("user-list");
+  if (!users.length) { el.innerHTML = '<span class="text-base-content/50">暂无额外用户（仅 admin）</span>'; return; }
+  el.innerHTML = users.map(u => '<div class="flex items-center gap-2 mb-1"><span class="badge badge-sm">'+u.username+'</span><span class="text-xs text-base-content/50">'+u.role+'</span><button class="btn btn-xs btn-ghost btn-error" onclick="delUser(\\''+u.username+'\\')">删除</button></div>').join('');
+}
+async function addUser() {
+  const username = document.getElementById("new-user").value;
+  const password = document.getElementById("new-user-pass").value;
+  if (!username || !password) { showToast("用户名和密码必填", false); return; }
+  const r = await fetch("/api/settings", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"add_user",username,password})});
+  const d = await r.json();
+  if (d.success) { showToast("✅ 用户已添加",true); document.getElementById("new-user").value=""; document.getElementById("new-user-pass").value=""; loadCron(); }
+  else showToast("❌ "+d.error, false);
+}
+async function delUser(username) {
+  if (!confirm("确定删除用户 "+username+" ?")) return;
+  const r = await fetch("/api/settings", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"delete_user",username})});
+  const d = await r.json();
+  if (d.success) { showToast("✅ 已删除",true); loadCron(); }
+  else showToast("❌ 失败",false);
 }
 async function saveCron() {
   const sel = document.getElementById("cron-hours");

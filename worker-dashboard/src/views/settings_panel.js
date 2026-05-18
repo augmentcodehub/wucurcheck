@@ -1,4 +1,4 @@
-/** Settings panels (cron + password) */
+/** Settings panels (cron + password + users) */
 
 export function renderSettingsPanel() {
   return `
@@ -14,12 +14,23 @@ export function renderSettingsPanel() {
   </div>
   <p class="text-xs text-base-content/50 mt-1">可多选，按住 Ctrl 选多个时间点</p>
 </div>
+
 <div class="mt-4 bg-base-100 rounded-box shadow p-4">
   <h3 class="font-bold mb-2">🔑 修改密码</h3>
   <div class="flex gap-2 items-center">
     <input id="new-pass" type="password" placeholder="输入新密码" class="input input-bordered input-sm w-48"/>
     <button class="btn btn-sm btn-warning" onclick="changePass()">修改</button>
     <span id="pass-status" class="text-xs"></span>
+  </div>
+</div>
+
+<div class="mt-4 bg-base-100 rounded-box shadow p-4">
+  <h3 class="font-bold mb-2">👥 用户管理</h3>
+  <div id="user-list" class="mb-3 text-sm"></div>
+  <div class="flex gap-2 items-center">
+    <input id="new-user" type="text" placeholder="用户名" class="input input-bordered input-sm w-32"/>
+    <input id="new-user-pass" type="text" placeholder="密码" class="input input-bordered input-sm w-32"/>
+    <button class="btn btn-sm btn-success" onclick="addUser()">添加用户</button>
   </div>
 </div>`;
 }
