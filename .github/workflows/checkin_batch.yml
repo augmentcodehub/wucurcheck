@@ -1,3 +1,6 @@
+# 数据源：Cloudflare KV → Worker 传入的未签到账号列表（JSON）
+# 触发方式：Worker「一键签到未签到」按钮 / Worker 定时任务
+# 用途：签到 KV 数据库中今日未签到的账号（独立于 GitHub Secrets）
 name: 批量签到未签到账号
 on:
   workflow_dispatch:

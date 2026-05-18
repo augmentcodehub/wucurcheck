@@ -1,3 +1,6 @@
+# 数据源：GitHub Secrets → ANYROUTER_ACCOUNTS（JSON 格式账号列表）
+# 触发方式：定时 cron / Worker 定时任务 / 手动 dispatch
+# 用途：签到 Secrets 中配置的账号（独立于 KV 数据库）
 name: AnyRouter 自动签到
 on:
   schedule:
