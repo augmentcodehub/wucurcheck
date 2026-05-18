@@ -2,6 +2,14 @@ import { log } from "../lib/log.js";
 import { triggerWorkflow } from "../lib/github.js";
 import { acquireLock } from "../lib/trigger_lock.js";
 import { hasValidSession } from "../auth.js";
+import { listAccounts, deleteAccount } from "../lib/store.js";
+
+function timingSafeEqual(a, b) {
+  if (!a || !b || a.length !== b.length) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return r === 0;
+}
 
 export async function apiTrigger(request, env) {
   const url = new URL(request.url);
@@ -15,7 +23,7 @@ export async function apiTrigger(request, env) {
   const token = body.token || url.searchParams.get("token") || request.headers.get("x-worker-token") || "";
   const expected = env.WORKER_SECRET || env.CALLBACK_SECRET || "";
   const sessionOk = await hasValidSession(request, env);
-  if (!sessionOk && (!expected || token !== expected)) {
+  if (!sessionOk && (!expected || !timingSafeEqual(token, expected))) {
     return Response.json({ success: false, error_code: "AUTH_FAILED" }, { status: 401 });
   }
 
@@ -24,7 +32,7 @@ export async function apiTrigger(request, env) {
 
   // 本地操作：删除不需要走 GitHub
   if (action === "delete" && target) {
-    const { deleteAccount } = await import("../lib/store.js");
+    
     await deleteAccount(env, target);
     log.info("account_deleted", { target });
     return Response.json({ success: true, action, target });
@@ -32,7 +40,7 @@ export async function apiTrigger(request, env) {
 
   // 批量删除
   if (action === "delete_all") {
-    const { listAccounts, deleteAccount } = await import("../lib/store.js");
+    
     const accounts = await listAccounts(env);
     for (const a of accounts) await deleteAccount(env, a.username);
     log.info("all_accounts_deleted", { count: accounts.length });
@@ -41,7 +49,7 @@ export async function apiTrigger(request, env) {
 
   // 删除失败的
   if (action === "delete_failed") {
-    const { listAccounts, deleteAccount } = await import("../lib/store.js");
+    
     const accounts = await listAccounts(env);
     const failed = accounts.filter(a => a.status === "failed");
     for (const a of failed) await deleteAccount(env, a.username);
@@ -51,7 +59,7 @@ export async function apiTrigger(request, env) {
 
   // 批量签到未签到的：从 KV 读取未签到账号传给 workflow
   if (action === "checkin_unchecked") {
-    const { listAccounts } = await import("../lib/store.js");
+    
     const accounts = await listAccounts(env);
     const today = new Date().toDateString();
     const unchecked = accounts

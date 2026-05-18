@@ -2,6 +2,13 @@ import { log } from "../lib/log.js";
 import { putAccount } from "../lib/store.js";
 import { releaseLock } from "../lib/trigger_lock.js";
 
+function timingSafeEqual(a, b) {
+  if (!a || !b || a.length !== b.length) return false;
+  let r = 0;
+  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return r === 0;
+}
+
 /**
  * POST /callback — GitHub Actions 完成后回调
  * Body: { secret, action, data }
@@ -11,16 +18,19 @@ export async function handleCallback(request, env) {
   try {
     body = await request.json();
   } catch {
-    return new Response("Bad Request", { status: 400 });
+    log.warn("callback_bad_json");
+    return Response.json({ ok: false, error: "INVALID_JSON" }, { status: 400 });
   }
 
-  if (!body.secret || body.secret !== env.CALLBACK_SECRET) {
-    log.warn("callback auth failed");
-    return new Response("Unauthorized", { status: 401 });
+  if (!body.secret || !timingSafeEqual(body.secret, env.CALLBACK_SECRET || "")) {
+    log.warn("callback_auth_failed");
+    return Response.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
   }
 
   const { action, data } = body;
-  if (!action || !data) return new Response("Missing action/data", { status: 400 });
+  if (!action || !data) {
+    return Response.json({ ok: false, error: "MISSING_FIELDS" }, { status: 400 });
+  }
 
   log.info("callback received", { action, username: data.username });
 
