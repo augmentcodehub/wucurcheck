@@ -46,8 +46,9 @@ function renderUsers(users) {
 async function addUser() {
   const username = document.getElementById("new-user").value;
   const password = document.getElementById("new-user-pass").value;
+  const role = document.getElementById("new-user-role").value;
   if (!username || !password) { showToast("用户名和密码必填", false); return; }
-  const r = await fetch("/api/settings", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"add_user",username,password})});
+  const r = await fetch("/api/settings", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"add_user",username,password,role})});
   const d = await r.json();
   if (d.success) { showToast("✅ 用户已添加",true); document.getElementById("new-user").value=""; document.getElementById("new-user-pass").value=""; loadCron(); }
   else showToast("❌ "+d.error, false);

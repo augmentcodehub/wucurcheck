@@ -30,6 +30,7 @@ export function renderSettingsPanel() {
   <div class="flex gap-2 items-center">
     <input id="new-user" type="text" placeholder="用户名" class="input input-bordered input-sm w-32"/>
     <input id="new-user-pass" type="text" placeholder="密码" class="input input-bordered input-sm w-32"/>
+    <select id="new-user-role" class="select select-bordered select-sm w-28"><option value="viewer">viewer</option><option value="admin">admin</option></select>
     <button class="btn btn-sm btn-success" onclick="addUser()">添加用户</button>
   </div>
 </div>`;
