@@ -45,12 +45,30 @@ export default {
   async scheduled(event, env, ctx) {
     setContext({ trigger: "cron", rid: crypto.randomUUID().slice(0, 8) });
     const config = await env.KV.get("config:cron_hour", "json");
-    // 默认北京时间 8 点（UTC 0）
     const hours = config || [0];
     const currentHour = new Date().getUTCHours();
     if (!hours.includes(currentHour)) return;
     log.info("cron_triggered", { hour: currentHour });
-    const result = await triggerWorkflow(env, { action: "checkin", target: "", callbackUrl: "https://worker-dashboard.ouraihub.workers.dev/callback" });
-    log.info("cron_result", { ok: result.ok });
+
+    // 1. 触发 checkin.yml（从 ANYROUTER_ACCOUNTS secret 读账号）
+    const r1 = await triggerWorkflow(env, { action: "checkin", target: "", callbackUrl: "https://worker-dashboard.ouraihub.workers.dev/callback" });
+    log.info("cron_checkin_yml", { ok: r1.ok });
+
+    // 2. 触发 checkin_batch.yml（从 KV 读未签到账号）
+    const { listAccounts } = await import("./lib/store.js");
+    const accounts = await listAccounts(env);
+    const today = new Date().toDateString();
+    const unchecked = accounts
+      .filter(a => a.status === "active" && (!a.checkin_time || new Date(a.checkin_time).toDateString() !== today))
+      .map(a => ({ username: a.username, password: a.password }));
+    if (unchecked.length > 0) {
+      const r2 = await triggerWorkflow(env, {
+        action: "checkin_unchecked",
+        target: "",
+        callbackUrl: "https://worker-dashboard.ouraihub.workers.dev/callback",
+        inputs: { accounts_json: JSON.stringify(unchecked) },
+      });
+      log.info("cron_checkin_batch", { ok: r2.ok, count: unchecked.length });
+    }
   },
 };
