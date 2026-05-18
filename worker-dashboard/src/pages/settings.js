@@ -1,10 +1,17 @@
 import { log } from "../lib/log.js";
+import { getSessionUser } from "../auth.js";
+
+async function isAdmin(request, env) {
+  const user = await getSessionUser(request, env);
+  return user === (env.ADMIN_USER || "admin");
+}
 
 export async function apiSettings(request, env) {
   if (request.method === "GET") {
     const cronHour = await env.KV.get("config:cron_hour", "json") || [0];
-    const users = await listUsers(env);
-    return Response.json({ cron_hours: cronHour, users });
+    const admin = await isAdmin(request, env);
+    const users = admin ? await listUsers(env) : [];
+    return Response.json({ cron_hours: cronHour, users, is_admin: admin });
   }
   if (request.method === "POST") {
     const body = await request.json();
@@ -13,9 +20,22 @@ export async function apiSettings(request, env) {
       if (!body.new_password || body.new_password.length < 4) {
         return Response.json({ success: false, error: "密码至少4位" }, { status: 400 });
       }
-      await env.KV.put("config:admin_pass", body.new_password);
-      log.info("password_changed");
+      const user = await getSessionUser(request, env);
+      if (user === (env.ADMIN_USER || "admin")) {
+        await env.KV.put("config:admin_pass", body.new_password);
+      } else {
+        const kvUser = await env.KV.get(`user:${user}`, "json");
+        if (kvUser) await env.KV.put(`user:${user}`, JSON.stringify({ ...kvUser, password: body.new_password }));
+      }
+      log.info("password_changed", { user });
       return Response.json({ success: true });
+    }
+
+    // 以下操作仅管理员
+    if (body.action === "add_user" || body.action === "delete_user") {
+      if (!(await isAdmin(request, env))) {
+        return Response.json({ success: false, error: "仅管理员可操作" }, { status: 403 });
+      }
     }
 
     if (body.action === "add_user") {
