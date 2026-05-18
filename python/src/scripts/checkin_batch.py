@@ -67,8 +67,14 @@ def run():
 
                     log.info("Checkin success", extra={"username": username, "quota": quota})
                 else:
-                    result["last_result"] = f"签到失败: {checkin_resp.get('message', '')}"
-                    log.warning("Checkin failed", extra={"username": username, "reason": checkin_resp.get("message")})
+                    msg = checkin_resp.get('message', '')
+                    if '已签到' in msg or '已经签到' in msg or 'already' in msg.lower():
+                        result["status"] = "active"
+                        result["last_result"] = "今日已签到"
+                        log.info("Already checked in", extra={"username": username})
+                    else:
+                        result["last_result"] = f"签到失败: {msg}"
+                        log.warning("Checkin failed", extra={"username": username, "reason": msg})
 
             except Exception as e:
                 result["last_result"] = f"异常: {str(e)[:100]}"
