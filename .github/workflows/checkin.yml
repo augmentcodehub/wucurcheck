@@ -117,28 +117,3 @@ jobs:
       run: |
         echo "签到任务执行完成"
         echo "时间: $(Get-Date)"
-
-    - name: 回调 Worker Dashboard
-      if: always()
-      env:
-        CALLBACK_URL: ${{ inputs.callback_url || secrets.WORKER_CALLBACK_URL }}
-        CALLBACK_SECRET: ${{ secrets.WORKER_CALLBACK_SECRET }}
-      run: |
-        if (-not $env:CALLBACK_URL) { echo "跳过回调：未配置回调地址"; exit 0 }
-        $status = if ("${{ job.status }}" -eq "success") { "active" } else { "failed" }
-        $body = @{
-          secret = $env:CALLBACK_SECRET
-          action = "checkin"
-          data = @{
-            username = "batch"
-            status = $status
-            checkin_time = (Get-Date -Format "yyyy-MM-ddTHH:mm:ssZ")
-            last_result = "签到$( if ($status -eq 'active') {'成功'} else {'失败'} ) $(Get-Date -Format 'HH:mm')"
-          }
-        } | ConvertTo-Json -Depth 3
-        try {
-          Invoke-RestMethod -Uri $env:CALLBACK_URL -Method POST -Body $body -ContentType "application/json"
-          echo "✅ 回调成功"
-        } catch {
-          echo "⚠️ 回调失败: $_"
-        }
