@@ -1,122 +1,97 @@
 # Worker Dashboard
 
-通用 Cloudflare Worker 管理后台框架。零构建，daisyUI + Tailwind CDN，Worker 直接渲染 HTML。
+Cloudflare Worker 管理后台。零构建，daisyUI + Tailwind CDN，Worker 直接渲染 HTML。
 
 ## 功能
 
-- 🔐 Cookie session 登录（crypto.randomUUID token，KV 存储带 TTL）
-- 📊 KV 数据表格展示（账号、余额、签到状态、时间）
-- 🚀 一键触发 GitHub Actions（注册、签到、批量签到）
-- 📥 回调接口自动写入 KV
-- 🎨 daisyUI drawer 侧边栏布局
-- 📝 结构化 JSON 日志（wrangler tail 友好）
+- 🔐 多用户登录（基于角色：admin/viewer）
+- 📊 账号列表（余额、签到状态、密码脱敏）
+- ➕ 批量注册（自然用户名生成、域名校验）
+- ⚡ 一键签到未签到账号
+- 🔄 定时自动签到（页面可配置时间）
+- 📥 导出 CSV
+- 🗑 批量删除（选中/失败/全部）
+- 🔒 触发锁保护（防重复提交）
+- 📝 结构化 JSON 日志
+- 👥 用户管理（admin 专属）
 
 ## 项目结构
 
 ```
 src/
-├── index.js              # 入口：请求上下文注入 + 错误边界 + 路由分发
+├── index.js              # 入口：路由 + Cron handler + 错误边界
 ├── router.js             # 路由注册表
-├── auth.js               # 登录/登出/session 验证
-├── layout.js             # daisyUI drawer 侧边栏布局模板
+├── auth.js               # 登录/登出/session/多用户验证
+├── layout.js             # daisyUI drawer 布局模板
 ├── lib/
-│   ├── log.js            # 结构化 JSON 日志（每请求带 rid）
-│   ├── store.js          # KV 数据层（账号 CRUD 抽象）
-│   └── github.js         # GitHub Actions 触发封装
+│   ├── log.js            # 结构化 JSON 日志
+│   ├── store.js          # KV CRUD（带日志和校验）
+│   ├── github.js         # GitHub Actions 触发（多 workflow）
+│   └── trigger_lock.js   # KV 短 TTL 锁
+├── views/
+│   ├── helpers.js        # 模板工具函数（badge, timeAgo, esc）
+│   ├── account_table.js  # 工具栏 + 表格
+│   ├── modals.js         # 详情弹窗 + 注册弹窗
+│   ├── settings_panel.js # 定时签到 + 密码 + 用户管理
+│   └── client_script.js  # 前端 JS 逻辑
 └── pages/
-    ├── accounts.js       # 账号管理页面 + API
-    ├── actions.js        # 触发操作 API（本地/远程分流）
-    └── callback.js       # Actions 回调写入 KV
+    ├── accounts.js       # 页面组装 + CSV 导出 API
+    ├── actions.js        # 触发 API（签到/注册/删除）
+    ├── callback.js       # Actions 回调写入 KV
+    └── settings.js       # 设置 + 用户管理 API
 ```
 
 ## 分层设计
 
 ```
-请求 → index.js（日志 + 错误边界）
-     → auth.js（session 拦截）
-     → router.js → pages/（UI 渲染 + API）
+请求 → index.js（日志 + 错误边界 + Cron）
+     → auth.js（session + 角色验证）
+     → router.js → pages/（API 逻辑）
                        ↓
+                   views/（HTML 模板）
                    lib/store.js（KV 操作）
                    lib/github.js（外部调用）
-                   lib/log.js（日志基础设施）
 ```
-
-- `lib/` — 基础设施层，无业务逻辑
-- `pages/` — 业务层，只调用 lib 方法
-- `layout.js` — UI 模板，页面传 title + content 即可
 
 ## 快速开始
 
 ```bash
-# 1. 安装
 npm install
-
-# 2. 创建 KV namespace
-npx wrangler kv namespace create KV
-# 把返回的 id 填入 wrangler.toml
-
-# 3. 配置 secrets
-npx wrangler secret put ADMIN_PASS
-npx wrangler secret put SESSION_SECRET
-npx wrangler secret put GITHUB_TOKEN
-npx wrangler secret put CALLBACK_SECRET
-
-# 4. 本地开发
-npx wrangler dev --local
-
-# 5. 部署
-npx wrangler deploy
+npx wrangler dev --local    # 本地开发
+npx wrangler deploy         # 部署
 ```
 
 ## 环境变量
 
-| 变量 | 说明 | 必填 |
-|------|------|------|
-| `ADMIN_USER` | 登录用户名（默认 admin） | vars |
-| `ADMIN_PASS` | 登录密码 | secret |
-| `SESSION_SECRET` | 预留（当前用 randomUUID） | secret |
-| `GITHUB_REPO` | GitHub 仓库（user/repo） | vars |
-| `GITHUB_TOKEN` | GitHub PAT（workflow 权限） | secret |
-| `GITHUB_WORKFLOW` | Workflow 文件名（默认 task.yml） | vars |
-| `CALLBACK_SECRET` | 回调验证密钥 | secret |
+| 变量 | 说明 |
+|------|------|
+| `ADMIN_USER` | 管理员用户名（默认 admin） |
+| `ADMIN_PASS` | 管理员密码（可被 KV 覆盖） |
+| `GITHUB_REPO` | GitHub 仓库（user/repo） |
+| `GITHUB_TOKEN` | GitHub PAT（secret） |
+| `GITHUB_WORKFLOW` | 签到 workflow（默认 checkin.yml） |
+| `CALLBACK_SECRET` | 回调验证密钥 |
+
+## KV 数据结构
+
+| Key 前缀 | 用途 |
+|----------|------|
+| `account:{username}` | 账号数据 |
+| `user:{username}` | 用户登录信息（password, role） |
+| `session:{token}` | 登录会话（TTL 7天） |
+| `lock:{action}:{target}` | 触发锁（TTL 5分钟） |
+| `config:cron_hour` | 定时签到时间配置 |
+| `config:admin_pass` | 管理员密码（KV 优先） |
 
 ## 回调协议
 
-GitHub Actions 完成后 POST 到 `/callback`：
-
 ```json
-// 注册
-{ "secret": "xxx", "action": "register", "data": { "username": "u1", "password": "p1", "platform": "aipulse" } }
-
 // 签到
-{ "secret": "xxx", "action": "checkin", "data": { "username": "u1", "balance": "128.5", "checkin_time": "2026-05-15T10:00:00Z" } }
+{"secret":"xxx","action":"checkin","data":{"username":"u1","balance":"1.5","checkin_time":"...","status":"active"}}
 
-// 批量
-{ "secret": "xxx", "action": "batch_result", "data": { "results": [{ "username": "u1", "balance": "100" }, ...] } }
+// 批量结果
+{"secret":"xxx","action":"batch_result","data":{"results":[{"username":"u1","balance":"1.5","status":"active"}]}}
+
+// 注册
+{"secret":"xxx","action":"register","data":{"username":"u1","password":"p1","platform":"wucur"}}
 ```
-
-## 日志
-
-所有日志为 JSON 格式，通过 `wrangler tail` 查看：
-
-```bash
-npx wrangler tail --format json
-```
-
-输出示例：
-```json
-{"ts":1715760000,"level":"info","msg":"request","path":"/","method":"GET","rid":"a1b2c3d4"}
-{"ts":1715760001,"level":"info","msg":"workflow triggered","action":"checkin","target":"user1","path":"/api/trigger","rid":"e5f6g7h8"}
-```
-
-## 扩展新页面
-
-1. 创建 `src/pages/xxx.js`，导出 handler
-2. 在 `src/router.js` 添加路由
-3. 在 `src/layout.js` 的 `navItems` 添加菜单项
-
-## 后期规划
-
-- 多用户：KV 存 `user:{id}`，auth.js 改查 KV
-- 定时签到：添加 `[triggers] crons` 配置
-- 操作日志：KV 存 `log:{timestamp}` 审计记录
