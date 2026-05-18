@@ -3,7 +3,12 @@ import { getSessionUser } from "../auth.js";
 
 async function isAdmin(request, env) {
   const user = await getSessionUser(request, env);
-  return user === (env.ADMIN_USER || "admin");
+  if (!user) return false;
+  // admin 环境变量用户默认是 admin 角色
+  if (user === (env.ADMIN_USER || "admin")) return true;
+  // 其他用户查 KV role
+  const kvUser = await env.KV.get(`user:${user}`, "json");
+  return kvUser?.role === "admin";
 }
 
 export async function apiSettings(request, env) {
