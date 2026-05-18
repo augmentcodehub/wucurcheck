@@ -15,7 +15,7 @@ export function layout(title, content, { nav = [] } = {}) {
 
   return new Response(
     `<!DOCTYPE html>
-<html data-theme="business">
+<html data-theme="light">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} - Dashboard</title>
