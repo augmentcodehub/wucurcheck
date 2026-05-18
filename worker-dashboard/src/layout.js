@@ -23,6 +23,7 @@ export function layout(title, content, { nav = [] } = {}) {
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body>
+<script>var t=localStorage.getItem('theme');if(t){document.documentElement.setAttribute('data-theme',t);document.addEventListener('DOMContentLoaded',function(){var s=document.querySelector('.drawer-side select');if(s)s.value=t;});}</script>
 <div class="drawer lg:drawer-open">
   <input id="drawer" type="checkbox" class="drawer-toggle"/>
   <div class="drawer-content flex flex-col">
@@ -47,6 +48,16 @@ export function layout(title, content, { nav = [] } = {}) {
       </div>
       <ul class="menu p-4 flex-1">${menuHTML}</ul>
       <div class="p-4 border-t border-base-300">
+        <select class="select select-xs w-full mb-2" onchange="document.documentElement.setAttribute('data-theme',this.value);localStorage.setItem('theme',this.value)">
+          <option value="business">Business</option>
+          <option value="dark">Dark</option>
+          <option value="light">Light</option>
+          <option value="night">Night</option>
+          <option value="dracula">Dracula</option>
+          <option value="nord">Nord</option>
+          <option value="dim">Dim</option>
+          <option value="sunset">Sunset</option>
+        </select>
         <a href="/logout" class="btn btn-ghost btn-sm w-full">退出登录</a>
       </div>
     </aside>
