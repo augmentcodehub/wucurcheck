@@ -89,11 +89,20 @@ export async function pageAccounts(request, env) {
   <p class="text-xs text-base-content/50 mt-1">可多选，按住 Ctrl 选多个时间点</p>
 </div>
 
+<div class="mt-4 bg-base-100 rounded-box shadow p-4">
+  <h3 class="font-bold mb-2">🔑 修改密码</h3>
+  <div class="flex gap-2 items-center">
+    <input id="new-pass" type="password" placeholder="输入新密码" class="input input-bordered input-sm w-48"/>
+    <button class="btn btn-sm btn-warning" onclick="changePass()">修改</button>
+    <span id="pass-status" class="text-xs"></span>
+  </div>
+</div>
+
 <dialog id="register-modal" class="modal">
   <div class="modal-box">
     <h3 class="text-lg font-bold mb-4">➕ 批量注册账号</h3>
     <div class="space-y-3">
-      <div><label class="label text-sm">数量</label><input id="reg-count" type="number" value="10" min="1" max="50" class="input input-bordered input-sm w-full" oninput="updatePreview()"/></div>
+      <div><label class="label text-sm">数量</label><input id="reg-count" type="number" value="3" min="1" max="50" class="input input-bordered input-sm w-full" oninput="updatePreview()"/></div>
       <div><label class="label text-sm">用户名组合</label><select id="reg-prefix" class="select select-bordered select-sm w-full" onchange="updatePreview()"><option value="fruit+animal">水果+动物</option><option value="plant+animal">植物+动物</option><option value="fruit+metal">水果+金属</option><option value="plant+metal">植物+金属</option></select></div>
       <div><label class="label text-sm">邮箱域名</label><select id="reg-domain" class="select select-bordered select-sm w-full" onchange="updatePreview()"><option value="qq.com">qq.com</option><option value="163.com">163.com</option><option value="gmail.com">gmail.com</option><option value="outlook.com">outlook.com</option><option value="mailto.plus">mailto.plus</option></select></div>
       <div><label class="label text-sm">密码</label><input id="reg-password" type="text" value="123Claude&Codex" class="input input-bordered input-sm w-full" oninput="updatePreview()"/></div>
@@ -148,6 +157,14 @@ async function saveCron() {
   const d = await r.json();
   document.getElementById("cron-status").textContent = d.success ? "✅ 已保存" : "❌ 失败";
 }
+async function changePass() {
+  const pass = document.getElementById("new-pass").value;
+  if (!pass || pass.length < 4) { document.getElementById("pass-status").textContent = "❌ 至少4位"; return; }
+  const r = await fetch("/api/settings", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"change_password",new_password:pass})});
+  const d = await r.json();
+  document.getElementById("pass-status").textContent = d.success ? "✅ 已修改，下次登录生效" : "❌ "+d.error;
+  document.getElementById("new-pass").value = "";
+}
 loadCron();
 async function doRegister(event) {
   const btn = event.currentTarget;
@@ -165,7 +182,13 @@ async function doRegister(event) {
     const r = await fetch("/api/trigger", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body) });
     const d = await r.json();
     document.getElementById("register-modal").close();
-    showToast(d.success ? "✅ 已触发注册 "+body.inputs.count+" 个账号" : "❌ "+(d.error_code||"FAILED"), d.success);
+    showToast(d.success ? "✅ 已触发注册 "+body.inputs.count+" 个账号，3分钟后自动签到" : "❌ "+(d.error_code||"FAILED"), d.success);
+    if (d.success) {
+      setTimeout(() => {
+        fetch("/api/trigger", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"checkin_unchecked"}) });
+        showToast("🔄 自动触发签到未签到账号", true);
+      }, 180000);
+    }
   } finally {
     btn.classList.remove("loading","loading-spinner");
   }

@@ -34,7 +34,11 @@ export async function handleLogin(env, request) {
   const user = form.get("user") || "";
   const pass = form.get("pass") || "";
 
-  if (!timingSafeEqual(user, env.ADMIN_USER || "admin") || !timingSafeEqual(pass, env.ADMIN_PASS || "")) {
+  // 优先从 KV 读密码，没有则用环境变量
+  const kvPass = await env.KV.get("config:admin_pass");
+  const expectedPass = kvPass || env.ADMIN_PASS || "";
+
+  if (!timingSafeEqual(user, env.ADMIN_USER || "admin") || !timingSafeEqual(pass, expectedPass)) {
     log.warn("login failed", { user });
     return html(LOGIN_HTML.replace("<!--ERR-->", '<div class="alert alert-error mt-4">用户名或密码错误</div>'), 401);
   }
