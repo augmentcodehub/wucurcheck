@@ -71,6 +71,10 @@ def run():
                     if '已签到' in msg or '已经签到' in msg or 'already' in msg.lower():
                         result["status"] = "active"
                         result["last_result"] = "今日已签到"
+                        result["checkin_time"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        info = get_user_info(client, headers, user_info_url)
+                        if info.get("success"):
+                            result["balance"] = str(info.get("quota", 0))
                         log.info("Already checked in", extra={"username": username})
                     else:
                         result["last_result"] = f"签到失败: {msg}"
