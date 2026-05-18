@@ -25,6 +25,13 @@ export async function hasValidSession(request, env) {
   return Boolean(stored);
 }
 
+export async function getSessionUser(request, env) {
+  const cookie = request.headers.get("Cookie") || "";
+  const match = cookie.match(/session=([^;]+)/);
+  if (!match) return null;
+  return env.KV.get(`session:${match[1]}`);
+}
+
 export async function handleLogin(env, request) {
   if (!request) {
     return html(LOGIN_HTML);
