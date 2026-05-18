@@ -20,6 +20,7 @@ export function layout(title, content, { nav = [] } = {}) {
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} - Dashboard</title>
 <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css"/>
+<link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css"/>
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 </head>
 <body>
@@ -49,14 +50,41 @@ export function layout(title, content, { nav = [] } = {}) {
       <ul class="menu p-4 flex-1">${menuHTML}</ul>
       <div class="p-4 border-t border-base-300">
         <select class="select select-xs w-full mb-2" onchange="document.documentElement.setAttribute('data-theme',this.value);localStorage.setItem('theme',this.value)">
-          <option value="business">Business</option>
-          <option value="dark">Dark</option>
           <option value="light">Light</option>
-          <option value="night">Night</option>
+          <option value="dark">Dark</option>
+          <option value="cupcake">Cupcake</option>
+          <option value="bumblebee">Bumblebee</option>
+          <option value="emerald">Emerald</option>
+          <option value="corporate">Corporate</option>
+          <option value="synthwave">Synthwave</option>
+          <option value="retro">Retro</option>
+          <option value="cyberpunk">Cyberpunk</option>
+          <option value="valentine">Valentine</option>
+          <option value="halloween">Halloween</option>
+          <option value="garden">Garden</option>
+          <option value="forest">Forest</option>
+          <option value="aqua">Aqua</option>
+          <option value="lofi">Lofi</option>
+          <option value="pastel">Pastel</option>
+          <option value="fantasy">Fantasy</option>
+          <option value="wireframe">Wireframe</option>
+          <option value="black">Black</option>
+          <option value="luxury">Luxury</option>
           <option value="dracula">Dracula</option>
-          <option value="nord">Nord</option>
+          <option value="cmyk">CMYK</option>
+          <option value="autumn">Autumn</option>
+          <option value="business">Business</option>
+          <option value="acid">Acid</option>
+          <option value="lemonade">Lemonade</option>
+          <option value="night">Night</option>
+          <option value="coffee">Coffee</option>
+          <option value="winter">Winter</option>
           <option value="dim">Dim</option>
+          <option value="nord">Nord</option>
           <option value="sunset">Sunset</option>
+          <option value="caramellatte">Caramellatte</option>
+          <option value="abyss">Abyss</option>
+          <option value="silk">Silk</option>
         </select>
         <a href="/logout" class="btn btn-ghost btn-sm w-full">退出登录</a>
       </div>
