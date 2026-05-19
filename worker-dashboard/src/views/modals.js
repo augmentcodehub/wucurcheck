@@ -29,6 +29,7 @@ export function renderDetailModal() {
       <div><span class="font-semibold">余额：</span><span id="detail-balance"></span></div>
       <div><span class="font-semibold">签到时间：</span><span id="detail-checkin-time"></span></div>
       <div><span class="font-semibold">最近结果：</span><span id="detail-last-result"></span></div>
+      <div id="detail-sso-row" class="hidden"><span class="font-semibold">SSO Token：</span><span id="detail-sso-token" class="break-all text-xs font-mono"></span></div>
     </div>
     <div class="modal-action"><form method="dialog"><button class="btn">关闭</button></form></div>
   </div>

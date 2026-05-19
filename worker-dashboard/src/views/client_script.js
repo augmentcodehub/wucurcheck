@@ -159,6 +159,8 @@ function showDetail(username) {
   document.getElementById("detail-balance").textContent = a.balance ?? "-";
   document.getElementById("detail-checkin-time").textContent = a.checkin_time || "-";
   document.getElementById("detail-last-result").textContent = a.last_result || "-";
+  const ssoRow = document.getElementById("detail-sso-row");
+  if (a.sso_token) { ssoRow.classList.remove("hidden"); document.getElementById("detail-sso-token").textContent = a.sso_token; } else { ssoRow.classList.add("hidden"); }
   document.getElementById("account-detail").showModal();
 }
 function showToast(msg, ok) {
