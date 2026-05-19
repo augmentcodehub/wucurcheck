@@ -112,7 +112,7 @@ jobs:
           }
         }
 
-        $results | ConvertTo-Json -Depth 3 | Out-File -FilePath artifacts/kiro_register_results.json -Encoding utf8
+        $results | ConvertTo-Json -Depth 3 -AsArray | Out-File -FilePath artifacts/kiro_register_results.json -Encoding utf8
         $succeeded = ($results | Where-Object { $_.status -eq "active" }).Count
         echo "注册完成: $succeeded/$count 成功"
 

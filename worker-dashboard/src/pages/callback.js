@@ -51,8 +51,9 @@ export async function handleCallback(request, env) {
     });
     await releaseLock(env, `checkin:${data.username}`);
     await releaseLock(env, "checkin:_all");
-  } else if (action === "batch_result" && Array.isArray(data.results)) {
-    for (const item of data.results) {
+  } else if (action === "batch_result" && (Array.isArray(data.results) || (data.results && typeof data.results === "object"))) {
+    const items = Array.isArray(data.results) ? data.results : [data.results];
+    for (const item of items) {
       if (item.username) {
         await putAccount(env, item.username, {
           ...item,
