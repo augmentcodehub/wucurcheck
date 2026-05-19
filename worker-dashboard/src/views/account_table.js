@@ -54,7 +54,8 @@ export function renderTable(accounts) {
     <th><input type="checkbox" class="checkbox checkbox-xs" id="select-all" onchange="toggleAll(this)"/></th>
     <th>用户名</th><th>密码</th><th>平台</th><th>余额</th><th>签到时间</th><th>状态</th><th>操作</th>
   </tr></thead>
-  <tbody>${rows || '<tr><td colspan="8" class="text-center py-8 text-base-content/50">暂无账号</td></tr>'}</tbody>
+  <tbody id="account-tbody">${rows || '<tr><td colspan="8" class="text-center py-8 text-base-content/50">暂无账号</td></tr>'}</tbody>
 </table>
-</div>`;
+</div>
+<div class="flex justify-center mt-4 gap-1" id="pagination"></div>`;
 }
