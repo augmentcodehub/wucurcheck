@@ -8,6 +8,27 @@ export function renderClientScript(accountsJson) {
   return `
 <script>
 const accounts = ${accountsJson};
+const PAGE_SIZE = 10;
+let currentPage = 1;
+function renderPage(page) {
+  currentPage = page;
+  const tbody = document.getElementById("account-tbody");
+  const rows = tbody.querySelectorAll("tr");
+  const total = rows.length;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  rows.forEach((row, i) => {
+    row.style.display = (i >= (page-1)*PAGE_SIZE && i < page*PAGE_SIZE) ? "" : "none";
+  });
+  const pg = document.getElementById("pagination");
+  if (totalPages <= 1) { pg.innerHTML = ""; return; }
+  let html = '<button class="btn btn-xs '+(page===1?'btn-disabled':'')+'" onclick="renderPage('+(page-1)+')">«</button>';
+  for (let p = 1; p <= totalPages; p++) {
+    html += '<button class="btn btn-xs '+(p===page?'btn-primary':'')+'" onclick="renderPage('+p+')">'+p+'</button>';
+  }
+  html += '<button class="btn btn-xs '+(page===totalPages?'btn-disabled':'')+'" onclick="renderPage('+(page+1)+')">»</button>';
+  pg.innerHTML = html;
+}
+document.addEventListener("DOMContentLoaded", () => renderPage(1));
 const MAX_TOTAL = ${MAX_EMAIL_LENGTH};
 const EXAMPLES = ${JSON.stringify(EXAMPLES)};
 
