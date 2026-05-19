@@ -88,20 +88,22 @@ jobs:
           echo $output
 
           try {
-            $result = $output | ConvertFrom-Json
+            $result = $output.Trim().Split("`n") | Where-Object { $_.StartsWith("{") } | Select-Object -Last 1 | ConvertFrom-Json
             $results += @{
-              email = $result.email
-              name = $result.name
+              username = $result.email
               password = $result.password
-              sso_token = if ($result.sso_token) { $result.sso_token.Substring(0, [Math]::Min(20, $result.sso_token.Length)) + "..." } else { $null }
-              success = $result.success
-              error = $result.error
+              platform = "kiro"
+              status = if ($result.success) { "active" } else { "failed" }
+              last_result = if ($result.success) { "注册成功" } else { "注册失败: $($result.error)" }
+              name = $result.name
+              sso_token = $result.sso_token
             }
           } catch {
             $results += @{
-              email = "unknown"
-              success = $false
-              error = "Failed to parse output"
+              username = "unknown"
+              platform = "kiro"
+              status = "failed"
+              last_result = "输出解析失败"
             }
           }
 
@@ -111,7 +113,7 @@ jobs:
         }
 
         $results | ConvertTo-Json -Depth 3 | Out-File -FilePath artifacts/kiro_register_results.json -Encoding utf8
-        $succeeded = ($results | Where-Object { $_.success }).Count
+        $succeeded = ($results | Where-Object { $_.status -eq "active" }).Count
         echo "注册完成: $succeeded/$count 成功"
 
     - name: 上传结果
@@ -132,7 +134,7 @@ jobs:
         $results = Get-Content artifacts/kiro_register_results.json | ConvertFrom-Json
         $body = @{
           secret = $env:CALLBACK_SECRET
-          action = "kiro_batch_result"
+          action = "batch_result"
           data = @{ results = $results }
         } | ConvertTo-Json -Depth 4
         try {
