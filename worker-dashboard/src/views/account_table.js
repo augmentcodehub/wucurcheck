@@ -7,6 +7,7 @@ export function renderToolbar(totalCount, todayCount) {
 <div class="flex items-center justify-between mb-4">
   <h2 class="text-2xl font-bold">账号管理</h2>
   <div class="flex gap-2">
+    <select class="select select-bordered select-sm" onchange="filterPlatform(this.value)"><option value="">全部平台</option><option value="wucur">wucur</option><option value="kiro">kiro</option></select>
     <button type="button" class="btn btn-success btn-sm" onclick="document.getElementById('register-modal').showModal()">➕ 批量注册</button>
     <button type="button" class="btn btn-info btn-sm" onclick="document.getElementById('register-kiro-modal').showModal()">🚀 注册 Kiro</button>
     <button type="button" class="btn btn-primary btn-sm" onclick="trigger(event, '')">🔄 手动触发签到</button>
@@ -32,7 +33,7 @@ export function renderToolbar(totalCount, todayCount) {
 export function renderTable(accounts) {
   const rows = accounts
     .map(
-      (a) => `<tr>
+      (a) => `<tr data-platform="${esc(a.platform || "")}">
     <td><input type="checkbox" class="checkbox checkbox-xs row-check" value="${esc(a.username)}"/></td>
     <td class="font-mono">${esc(a.username)}</td>
     <td class="font-mono text-xs"><span class="cursor-pointer" onclick="this.textContent=this.dataset.p" data-p="${esc(a.password)}">••••••</span></td>

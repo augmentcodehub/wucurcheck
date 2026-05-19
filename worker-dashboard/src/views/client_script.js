@@ -10,12 +10,23 @@ export function renderClientScript(accountsJson) {
 const accounts = ${accountsJson};
 const PAGE_SIZE = 10;
 let currentPage = 1;
+let currentPlatform = "";
+function filterPlatform(platform) {
+  currentPlatform = platform;
+  const rows = document.querySelectorAll("#account-tbody tr");
+  rows.forEach(row => {
+    if (!platform || row.dataset.platform === platform) { row.classList.remove("platform-hidden"); }
+    else { row.classList.add("platform-hidden"); }
+  });
+  renderPage(1);
+}
 function renderPage(page) {
   currentPage = page;
   const tbody = document.getElementById("account-tbody");
-  const rows = tbody.querySelectorAll("tr");
+  const rows = Array.from(tbody.querySelectorAll("tr:not(.platform-hidden)"));
   const total = rows.length;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
+  tbody.querySelectorAll("tr").forEach(r => r.style.display = "none");
+  const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
   rows.forEach((row, i) => {
     row.style.display = (i >= (page-1)*PAGE_SIZE && i < page*PAGE_SIZE) ? "" : "none";
   });
