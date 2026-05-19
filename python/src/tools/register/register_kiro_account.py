@@ -1,12 +1,15 @@
 """AWS Builder ID (Kiro) automated registration via Playwright.
 
-Faithfully ported from Kiro-auto-register/src/main/autoRegister.ts.
+Faithfully ported from Kiro-auto-register/src/main/autoRegister.ts + index.ts.
+Flow: browser registration → sso_token cookie → ssoDeviceAuth API → refreshToken + accessToken.
 """
 
 from __future__ import annotations
 
+import asyncio
 import random
-from dataclasses import dataclass
+import time
+from dataclasses import dataclass, field
 
 import httpx
 from playwright.async_api import Page, async_playwright
@@ -19,8 +22,8 @@ LAST_NAMES = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Mille
 DEFAULT_PASSWORD = 'admin123456aA!'
 
 OIDC_BASE = 'https://oidc.us-east-1.amazonaws.com'
+PORTAL_BASE = 'https://portal.sso.us-east-1.amazonaws.com'
 START_URL = 'https://view.awsapps.com/start'
-REGISTER_URL_TEMPLATE = 'https://view.awsapps.com/start/#/device?user_code={user_code}'
 SCOPES = [
     'codewhisperer:analysis',
     'codewhisperer:completions',
@@ -31,69 +34,160 @@ SCOPES = [
 
 
 @dataclass(frozen=True)
-class DeviceAuthInfo:
-    client_id: str
-    client_secret: str
-    device_code: str
-    user_code: str
-    interval: int = 1
-
-
-@dataclass(frozen=True)
 class KiroRegistrationResult:
     success: bool
     sso_token: str | None = None
+    access_token: str | None = None
+    refresh_token: str | None = None
+    client_id: str | None = None
+    client_secret: str | None = None
+    region: str = 'us-east-1'
+    expires_in: int | None = None
     name: str | None = None
     password: str | None = None
     error: str | None = None
 
 
-# ============ Device Code ============
+# ============ SSO Device Auth (from index.ts ssoDeviceAuth) ============
 
-def obtain_device_code() -> DeviceAuthInfo | None:
-    """Register OIDC client and start device authorization to get a fresh user_code."""
-    # Step 1: Register OIDC client
-    resp = httpx.post(
-        f'{OIDC_BASE}/client/register',
-        json={
+def sso_device_auth(bearer_token: str, region: str = 'us-east-1') -> dict:
+    """Execute the full SSO device authorization flow using the bearer token (sso_token).
+
+    Returns dict with: success, accessToken, refreshToken, clientId, clientSecret, region, expiresIn, error
+    """
+    oidc_base = f'https://oidc.{region}.amazonaws.com'
+    portal_base = 'https://portal.sso.us-east-1.amazonaws.com'
+    start_url = 'https://view.awsapps.com/start'
+    scopes = SCOPES
+
+    with httpx.Client(timeout=30) as client:
+        # Step 1: Register OIDC client
+        print('[SSO] Step 1: Registering OIDC client...')
+        resp = client.post(f'{oidc_base}/client/register', json={
             'clientName': 'Kiro Account Manager',
             'clientType': 'public',
-            'scopes': SCOPES,
+            'scopes': scopes,
             'grantTypes': ['urn:ietf:params:oauth:grant-type:device_code', 'refresh_token'],
-            'issuerUrl': START_URL,
-        },
-        timeout=30,
-    )
-    if resp.status_code != 200:
-        return None
-    reg = resp.json()
+            'issuerUrl': start_url,
+        })
+        if resp.status_code != 200:
+            return {'success': False, 'error': f'Register client failed: {resp.status_code} {resp.text[:200]}'}
+        reg = resp.json()
+        client_id = reg['clientId']
+        client_secret = reg['clientSecret']
+        print(f'[SSO] Client registered: {client_id[:30]}...')
 
-    # Step 2: Device authorization
-    resp = httpx.post(
-        f'{OIDC_BASE}/device_authorization',
-        json={
-            'clientId': reg['clientId'],
-            'clientSecret': reg['clientSecret'],
-            'startUrl': START_URL,
-        },
-        timeout=30,
-    )
-    if resp.status_code != 200:
-        return None
-    dev = resp.json()
-    return DeviceAuthInfo(
-        client_id=reg['clientId'],
-        client_secret=reg['clientSecret'],
-        device_code=dev['deviceCode'],
-        user_code=dev['userCode'],
-        interval=dev.get('interval', 1),
-    )
+        # Step 2: Device authorization
+        print('[SSO] Step 2: Starting device authorization...')
+        resp = client.post(f'{oidc_base}/device_authorization', json={
+            'clientId': client_id,
+            'clientSecret': client_secret,
+            'startUrl': start_url,
+        })
+        if resp.status_code != 200:
+            return {'success': False, 'error': f'Device auth failed: {resp.status_code} {resp.text[:200]}'}
+        dev = resp.json()
+        device_code = dev['deviceCode']
+        user_code = dev['userCode']
+        interval = dev.get('interval', 1)
+        print(f'[SSO] Device code obtained, user_code: {user_code}')
+
+        # Step 3: Verify bearer token (whoAmI)
+        print('[SSO] Step 3: Verifying bearer token...')
+        resp = client.get(f'{portal_base}/token/whoAmI', headers={
+            'Authorization': f'Bearer {bearer_token}',
+            'Accept': 'application/json',
+        })
+        if resp.status_code != 200:
+            return {'success': False, 'error': f'whoAmI failed: {resp.status_code} {resp.text[:200]}'}
+        print('[SSO] Bearer token verified')
+
+        # Step 4: Get device session token
+        print('[SSO] Step 4: Getting device session token...')
+        resp = client.post(f'{portal_base}/session/device', headers={
+            'Authorization': f'Bearer {bearer_token}',
+            'Content-Type': 'application/json',
+        }, json={})
+        if resp.status_code != 200:
+            return {'success': False, 'error': f'Device session failed: {resp.status_code} {resp.text[:200]}'}
+        device_session_token = resp.json()['token']
+        print('[SSO] Device session token obtained')
+
+        # Step 5: Accept user code
+        print('[SSO] Step 5: Accepting user code...')
+        resp = client.post(f'{oidc_base}/device_authorization/accept_user_code', headers={
+            'Content-Type': 'application/json',
+            'Referer': 'https://view.awsapps.com/',
+        }, json={
+            'userCode': user_code,
+            'userSessionId': device_session_token,
+        })
+        if resp.status_code != 200:
+            return {'success': False, 'error': f'Accept user code failed: {resp.status_code} {resp.text[:200]}'}
+        accept_data = resp.json()
+        device_context = accept_data.get('deviceContext')
+        print('[SSO] User code accepted')
+
+        # Step 6: Approve authorization
+        if device_context and device_context.get('deviceContextId'):
+            print('[SSO] Step 6: Approving authorization...')
+            resp = client.post(f'{oidc_base}/device_authorization/associate_token', headers={
+                'Content-Type': 'application/json',
+                'Referer': 'https://view.awsapps.com/',
+            }, json={
+                'deviceContext': {
+                    'deviceContextId': device_context['deviceContextId'],
+                    'clientId': device_context.get('clientId', client_id),
+                    'clientType': device_context.get('clientType', 'public'),
+                },
+                'userSessionId': device_session_token,
+            })
+            if resp.status_code != 200:
+                return {'success': False, 'error': f'Approve failed: {resp.status_code} {resp.text[:200]}'}
+            print('[SSO] Authorization approved')
+
+        # Step 7: Poll for token
+        print('[SSO] Step 7: Polling for token...')
+        start_time = time.time()
+        timeout = 120  # 2 minutes
+
+        while time.time() - start_time < timeout:
+            time.sleep(interval)
+            resp = client.post(f'{oidc_base}/token', json={
+                'clientId': client_id,
+                'clientSecret': client_secret,
+                'grantType': 'urn:ietf:params:oauth:grant-type:device_code',
+                'deviceCode': device_code,
+            })
+
+            if resp.status_code == 200:
+                token_data = resp.json()
+                print('[SSO] Token obtained successfully!')
+                return {
+                    'success': True,
+                    'accessToken': token_data['accessToken'],
+                    'refreshToken': token_data['refreshToken'],
+                    'clientId': client_id,
+                    'clientSecret': client_secret,
+                    'region': region,
+                    'expiresIn': token_data.get('expiresIn'),
+                }
+
+            if resp.status_code == 400:
+                err = resp.json()
+                if err.get('error') == 'authorization_pending':
+                    continue
+                elif err.get('error') == 'slow_down':
+                    interval += 5
+                else:
+                    return {'success': False, 'error': f'Token poll failed: {err.get("error")}'}
+
+        return {'success': False, 'error': 'Authorization timeout'}
 
 
-# ============ Helpers (match original TS exactly) ============
+# ============ Browser Helpers ============
 
 async def _wait_and_fill(page: Page, selector: str, value: str, timeout: int = 30000) -> bool:
-    """Wait for input to appear and fill it."""
     try:
         el = page.locator(selector).first
         await el.wait_for(state='visible', timeout=timeout)
@@ -106,7 +200,6 @@ async def _wait_and_fill(page: Page, selector: str, value: str, timeout: int = 3
 
 
 async def _wait_and_click_with_retry(page: Page, selector: str, timeout: int = 30000, max_retries: int = 3) -> bool:
-    """Click button, then check for AWS error popup and retry if needed."""
     try:
         el = page.locator(selector).first
         await el.wait_for(state='visible', timeout=timeout)
@@ -115,7 +208,6 @@ async def _wait_and_click_with_retry(page: Page, selector: str, timeout: int = 3
     except Exception:
         return False
 
-    # Check for error popup and retry
     for retry in range(max_retries):
         await page.wait_for_timeout(1500)
         has_error = False
@@ -152,7 +244,6 @@ async def _wait_and_click_with_retry(page: Page, selector: str, timeout: int = 3
 # ============ Outlook Activation ============
 
 async def activate_outlook(email: str, password: str, *, headless: bool = False) -> bool:
-    """Activate an Outlook mailbox by logging in via browser."""
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=headless, args=['--disable-blink-features=AutomationControlled'])
         ctx = await browser.new_context(
@@ -163,14 +254,10 @@ async def activate_outlook(email: str, password: str, *, headless: bool = False)
         try:
             await page.goto('https://go.microsoft.com/fwlink/p/?linkid=2125442', wait_until='networkidle', timeout=60000)
             await page.wait_for_timeout(2000)
-
-            # Email
             for sel in ['input#i0116[type="email"]', 'input[name="loginfmt"]', 'input[type="email"]']:
                 if await _wait_and_fill(page, sel, email, timeout=10000):
                     break
             await page.wait_for_timeout(1000)
-
-            # Next
             for sel in ['input#idSIButton9[type="submit"]', 'input[type="submit"]']:
                 try:
                     await page.locator(sel).first.click()
@@ -178,14 +265,10 @@ async def activate_outlook(email: str, password: str, *, headless: bool = False)
                 except Exception:
                     continue
             await page.wait_for_timeout(3000)
-
-            # Password
             for sel in ['input#i0118[type="password"]', 'input[name="passwd"]', 'input[type="password"]']:
                 if await _wait_and_fill(page, sel, password, timeout=15000):
                     break
             await page.wait_for_timeout(1000)
-
-            # Sign in
             for sel in ['button[type="submit"][data-testid="primaryButton"]', 'input#idSIButton9[type="submit"]']:
                 try:
                     await page.locator(sel).first.click()
@@ -193,8 +276,6 @@ async def activate_outlook(email: str, password: str, *, headless: bool = False)
                 except Exception:
                     continue
             await page.wait_for_timeout(3000)
-
-            # Skip prompts
             for _ in range(2):
                 try:
                     await page.locator('a#iShowSkip').first.wait_for(state='visible', timeout=10000)
@@ -202,8 +283,6 @@ async def activate_outlook(email: str, password: str, *, headless: bool = False)
                     await page.wait_for_timeout(2000)
                 except Exception:
                     break
-
-            # Cancel passkey
             for sel in ['button[data-testid="secondaryButton"]:has-text("Cancel")', 'button[data-testid="secondaryButton"]:has-text("取消")']:
                 try:
                     await page.locator(sel).first.wait_for(state='visible', timeout=5000)
@@ -212,8 +291,6 @@ async def activate_outlook(email: str, password: str, *, headless: bool = False)
                 except Exception:
                     continue
             await page.wait_for_timeout(2000)
-
-            # Stay signed in - Yes
             for sel in ['input#idSIButton9', 'button:has-text("Yes")', 'button:has-text("是")']:
                 try:
                     await page.locator(sel).first.wait_for(state='visible', timeout=5000)
@@ -222,7 +299,6 @@ async def activate_outlook(email: str, password: str, *, headless: bool = False)
                 except Exception:
                     continue
             await page.wait_for_timeout(5000)
-
             return 'outlook' in page.url.lower() or 'mail' in page.url.lower()
         finally:
             await browser.close()
@@ -238,16 +314,70 @@ async def register_kiro(
     headless: bool = False,
     code_timeout: int = 120,
 ) -> KiroRegistrationResult:
-    """Register an AWS Builder ID account. Faithfully follows the original TS flow."""
+    """Register an AWS Builder ID account. Strictly follows the original TS flow:
+    1. Browser registration → get sso_token cookie
+    2. ssoDeviceAuth(sso_token) → get refreshToken + accessToken + clientId + clientSecret
+    """
     name = f'{random.choice(FIRST_NAMES)} {random.choice(LAST_NAMES)}'
     password = DEFAULT_PASSWORD
 
-    # Obtain fresh device code
-    device_auth = obtain_device_code()
-    if not device_auth:
-        return KiroRegistrationResult(False, error='Failed to obtain device code from AWS OIDC')
+    # Phase 1: Browser registration to get sso_token
+    sso_token = await _browser_register(email, email_client, name, password, proxy_url=proxy_url, headless=headless, code_timeout=code_timeout)
 
-    register_url = REGISTER_URL_TEMPLATE.format(user_code=device_auth.user_code)
+    if isinstance(sso_token, str) and sso_token.startswith('ERROR:'):
+        return KiroRegistrationResult(False, error=sso_token[6:])
+
+    if not sso_token:
+        return KiroRegistrationResult(False, error='Failed to get SSO Token from browser')
+
+    print(f'[OK] Got SSO Token (length={len(sso_token)})')
+
+    # Phase 2: SSO Device Auth to get refreshToken + accessToken
+    print('[INFO] Starting SSO Device Auth flow...')
+    auth_result = sso_device_auth(sso_token)
+
+    if not auth_result.get('success'):
+        # Still return sso_token even if device auth fails
+        return KiroRegistrationResult(
+            success=True,
+            sso_token=sso_token,
+            name=name,
+            password=password,
+            error=f'Device auth failed: {auth_result.get("error")} (sso_token still valid)',
+        )
+
+    return KiroRegistrationResult(
+        success=True,
+        sso_token=sso_token,
+        access_token=auth_result['accessToken'],
+        refresh_token=auth_result['refreshToken'],
+        client_id=auth_result['clientId'],
+        client_secret=auth_result['clientSecret'],
+        region=auth_result.get('region', 'us-east-1'),
+        expires_in=auth_result.get('expiresIn'),
+        name=name,
+        password=password,
+    )
+
+
+async def _browser_register(
+    email: str,
+    email_client: EmailClient,
+    name: str,
+    password: str,
+    *,
+    proxy_url: str | None = None,
+    headless: bool = False,
+    code_timeout: int = 120,
+) -> str | None:
+    """Browser automation to register/login and get sso_token cookie. Returns token or 'ERROR:msg'."""
+
+    # Get a fresh device code for the registration URL
+    device_auth = _obtain_device_code()
+    if not device_auth:
+        return 'ERROR:Failed to obtain device code from AWS OIDC'
+
+    register_url = f'https://view.awsapps.com/start/#/device?user_code={device_auth["user_code"]}'
 
     async with async_playwright() as p:
         launch_opts: dict = {
@@ -265,131 +395,141 @@ async def register_kiro(
         page = await ctx.new_page()
 
         try:
-            # Step 1: Navigate to register page
             await page.goto(register_url, wait_until='networkidle', timeout=60000)
             await page.wait_for_timeout(2000)
 
             # Fill email
             if not await _wait_and_fill(page, 'input[placeholder="username@example.com"]', email):
-                return KiroRegistrationResult(False, error='Email input not found')
+                return 'ERROR:Email input not found'
             await page.wait_for_timeout(1000)
 
-            # Click first continue (with error retry)
+            # Click first continue
             if not await _wait_and_click_with_retry(page, 'button[data-testid="test-primary-button"]'):
-                return KiroRegistrationResult(False, error='Click first continue failed')
+                return 'ERROR:Click first continue failed'
             await page.wait_for_timeout(3000)
 
-            # Detect flow: register vs login vs verify
+            # Detect flow
             flow = await _detect_flow(page)
 
             if flow == 'register':
-                # ===== REGISTER FLOW =====
-                # Step 2: Fill name
-                if not await _wait_and_fill(page, 'input[placeholder="Maria José Silva"]', name):
-                    return KiroRegistrationResult(False, error='Name input not found')
-                await page.wait_for_timeout(1000)
-
-                # Click signup next
-                if not await _wait_and_click_with_retry(page, 'button[data-testid="signup-next-button"]'):
-                    return KiroRegistrationResult(False, error='Click signup next failed')
-                await page.wait_for_timeout(3000)
-
-                # Step 3: Wait for verification code input
-                code_sel = await _find_code_input(page)
-                if not code_sel:
-                    return KiroRegistrationResult(False, error='Verification code input not found')
-                await page.wait_for_timeout(1000)
-
-                # Get code from email
-                code = poll_verification_code(email_client, timeout=code_timeout)
-                if not code:
-                    return KiroRegistrationResult(False, error='Failed to get verification code')
-
-                # Fill code
-                if not await _wait_and_fill(page, code_sel, code):
-                    return KiroRegistrationResult(False, error='Failed to fill verification code')
-                await page.wait_for_timeout(1000)
-
-                # Click verify
-                if not await _wait_and_click_with_retry(page, 'button[data-testid="email-verification-verify-button"]'):
-                    return KiroRegistrationResult(False, error='Click verify button failed')
-                await page.wait_for_timeout(3000)
-
-                # Step 4: Set password
-                if not await _wait_and_fill(page, 'input[placeholder="Enter password"]', password):
-                    return KiroRegistrationResult(False, error='Password input not found')
-                await page.wait_for_timeout(500)
-                if not await _wait_and_fill(page, 'input[placeholder="Re-enter password"]', password):
-                    return KiroRegistrationResult(False, error='Confirm password input not found')
-                await page.wait_for_timeout(1000)
-
-                # Click final continue
-                if not await _wait_and_click_with_retry(page, 'button[data-testid="test-primary-button"]'):
-                    return KiroRegistrationResult(False, error='Click final continue failed')
-                await page.wait_for_timeout(5000)
-
+                result = await _handle_register_flow(page, email_client, name, password, code_timeout)
             else:
-                # ===== LOGIN FLOW (account already registered) =====
-                if flow != 'verify':
-                    # Need to enter password first
-                    if not await _wait_and_fill(page, 'input[placeholder="Enter password"]', password):
-                        return KiroRegistrationResult(False, error='Login password input not found')
-                    await page.wait_for_timeout(1000)
-                    if not await _wait_and_click_with_retry(page, 'button[data-testid="test-primary-button"]'):
-                        return KiroRegistrationResult(False, error='Click login continue failed')
-                    await page.wait_for_timeout(3000)
+                result = await _handle_login_flow(page, email_client, password, code_timeout, is_verify=(flow == 'verify'))
 
-                # Wait for code input
-                code_sel = await _find_code_input(page)
-                if not code_sel:
-                    return KiroRegistrationResult(False, error='Login verification code input not found')
-                await page.wait_for_timeout(1000)
+            if result:
+                return result  # error string
 
-                # Get code
-                code = poll_verification_code(email_client, timeout=code_timeout)
-                if not code:
-                    return KiroRegistrationResult(False, error='Failed to get login verification code')
-
-                # Fill code
-                if not await _wait_and_fill(page, code_sel, code):
-                    return KiroRegistrationResult(False, error='Failed to fill login code')
-                await page.wait_for_timeout(1000)
-
-                # Click verify
-                if not await _wait_and_click_with_retry(page, 'button[data-testid="test-primary-button"]'):
-                    return KiroRegistrationResult(False, error='Click login verify failed')
-                await page.wait_for_timeout(5000)
-
-            # Step 5: Get SSO Token from cookies
-            sso_token = None
+            # Get SSO Token from cookies
             for _ in range(30):
                 cookies = await ctx.cookies()
                 for c in cookies:
                     if c['name'] == 'x-amz-sso_authn':
-                        sso_token = c['value']
-                        break
-                if sso_token:
-                    break
+                        return c['value']
                 await page.wait_for_timeout(1000)
 
-            if sso_token:
-                return KiroRegistrationResult(True, sso_token=sso_token, name=name, password=password)
-            else:
-                return KiroRegistrationResult(False, error='Failed to get SSO Token')
+            return 'ERROR:Failed to get SSO Token cookie'
 
         except Exception as e:
-            return KiroRegistrationResult(False, error=str(e))
+            return f'ERROR:{e}'
         finally:
             await browser.close()
 
 
-async def _detect_flow(page: Page) -> str:
-    """Detect whether we're in register, login, or verify flow after first continue.
-    
-    Uses Promise.race pattern from original TS: wait for whichever element appears first.
-    """
-    import asyncio
+def _obtain_device_code() -> dict | None:
+    """Get a fresh device code for the registration URL only."""
+    resp = httpx.post(f'{OIDC_BASE}/client/register', json={
+        'clientName': 'Kiro Account Manager',
+        'clientType': 'public',
+        'scopes': SCOPES,
+        'grantTypes': ['urn:ietf:params:oauth:grant-type:device_code', 'refresh_token'],
+        'issuerUrl': START_URL,
+    }, timeout=30)
+    if resp.status_code != 200:
+        return None
+    reg = resp.json()
 
+    resp = httpx.post(f'{OIDC_BASE}/device_authorization', json={
+        'clientId': reg['clientId'],
+        'clientSecret': reg['clientSecret'],
+        'startUrl': START_URL,
+    }, timeout=30)
+    if resp.status_code != 200:
+        return None
+    dev = resp.json()
+    return {'user_code': dev['userCode']}
+
+
+async def _handle_register_flow(page: Page, email_client: EmailClient, name: str, password: str, code_timeout: int) -> str | None:
+    """Handle new account registration. Returns None on success, error string on failure."""
+    if not await _wait_and_fill(page, 'input[placeholder="Maria José Silva"]', name):
+        return 'ERROR:Name input not found'
+    await page.wait_for_timeout(1000)
+
+    if not await _wait_and_click_with_retry(page, 'button[data-testid="signup-next-button"]'):
+        return 'ERROR:Click signup next failed'
+    await page.wait_for_timeout(3000)
+
+    code_sel = await _find_code_input(page)
+    if not code_sel:
+        return 'ERROR:Verification code input not found'
+    await page.wait_for_timeout(1000)
+
+    code = poll_verification_code(email_client, timeout=code_timeout)
+    if not code:
+        return 'ERROR:Failed to get verification code'
+
+    if not await _wait_and_fill(page, code_sel, code):
+        return 'ERROR:Failed to fill verification code'
+    await page.wait_for_timeout(1000)
+
+    if not await _wait_and_click_with_retry(page, 'button[data-testid="email-verification-verify-button"]'):
+        return 'ERROR:Click verify button failed'
+    await page.wait_for_timeout(3000)
+
+    if not await _wait_and_fill(page, 'input[placeholder="Enter password"]', password):
+        return 'ERROR:Password input not found'
+    await page.wait_for_timeout(500)
+    if not await _wait_and_fill(page, 'input[placeholder="Re-enter password"]', password):
+        return 'ERROR:Confirm password input not found'
+    await page.wait_for_timeout(1000)
+
+    if not await _wait_and_click_with_retry(page, 'button[data-testid="test-primary-button"]'):
+        return 'ERROR:Click final continue failed'
+    await page.wait_for_timeout(5000)
+    return None
+
+
+async def _handle_login_flow(page: Page, email_client: EmailClient, password: str, code_timeout: int, *, is_verify: bool = False) -> str | None:
+    """Handle login flow (account already registered). Returns None on success, error string on failure."""
+    if not is_verify:
+        if not await _wait_and_fill(page, 'input[placeholder="Enter password"]', password):
+            return 'ERROR:Login password input not found'
+        await page.wait_for_timeout(1000)
+        if not await _wait_and_click_with_retry(page, 'button[data-testid="test-primary-button"]'):
+            return 'ERROR:Click login continue failed'
+        await page.wait_for_timeout(3000)
+
+    code_sel = await _find_code_input(page)
+    if not code_sel:
+        return 'ERROR:Login verification code input not found'
+    await page.wait_for_timeout(1000)
+
+    code = poll_verification_code(email_client, timeout=code_timeout)
+    if not code:
+        return 'ERROR:Failed to get login verification code'
+
+    if not await _wait_and_fill(page, code_sel, code):
+        return 'ERROR:Failed to fill login code'
+    await page.wait_for_timeout(1000)
+
+    if not await _wait_and_click_with_retry(page, 'button[data-testid="test-primary-button"]'):
+        return 'ERROR:Click login verify failed'
+    await page.wait_for_timeout(5000)
+    return None
+
+
+async def _detect_flow(page: Page) -> str:
+    """Detect whether we're in register, login, or verify flow."""
     async def _wait(selector: str, label: str) -> str:
         try:
             await page.locator(selector).first.wait_for(state='visible', timeout=30000)
@@ -408,7 +548,6 @@ async def _detect_flow(page: Page) -> str:
         if r:
             return r
 
-    # Fallback checks
     try:
         if await page.locator('input[placeholder="Maria José Silva"]').first.is_visible():
             return 'register'
@@ -424,7 +563,6 @@ async def _detect_flow(page: Page) -> str:
 
 
 async def _find_code_input(page: Page) -> str | None:
-    """Wait for verification code input to appear, return its selector."""
     for sel in ['input[placeholder="6-digit"]', 'input[placeholder="6 位数"]', 'input[class*="awsui_input"][type="text"]']:
         try:
             await page.locator(sel).first.wait_for(state='visible', timeout=10000)
