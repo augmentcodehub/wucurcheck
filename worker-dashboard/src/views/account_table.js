@@ -69,13 +69,13 @@ export function renderTable(accounts) {
   const kiroAccounts = accounts.filter(a => a.platform === "kiro");
 
   return `
-<div role="tablist" class="tabs tabs-bordered mb-4">
-  <input type="radio" name="platform-tabs" role="tab" class="tab" aria-label="Wucur (${wucurAccounts.length})" checked onclick="switchTab('wucur')"/>
-  <div role="tabpanel" class="tab-content pt-4" id="tab-wucur">
+<div role="tablist" class="tabs tabs-lifted tabs-lg">
+  <input type="radio" name="platform-tabs" role="tab" class="tab font-semibold" aria-label="🔥 Wucur (${wucurAccounts.length})" checked onclick="switchTab('wucur')"/>
+  <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-4" id="tab-wucur">
     ${renderTableBlock(wucurAccounts, "tbody-wucur")}
   </div>
-  <input type="radio" name="platform-tabs" role="tab" class="tab" aria-label="Kiro (${kiroAccounts.length})" onclick="switchTab('kiro')"/>
-  <div role="tabpanel" class="tab-content pt-4" id="tab-kiro">
+  <input type="radio" name="platform-tabs" role="tab" class="tab font-semibold" aria-label="🚀 Kiro (${kiroAccounts.length})" onclick="switchTab('kiro')"/>
+  <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-4" id="tab-kiro">
     ${renderTableBlock(kiroAccounts, "tbody-kiro")}
   </div>
 </div>`;
