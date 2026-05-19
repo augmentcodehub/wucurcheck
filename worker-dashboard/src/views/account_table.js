@@ -78,4 +78,3 @@ export function renderTable(accounts) {
   <div id="tab-kiro" class="hidden">${renderTableBlock(kiroAccounts, "tbody-kiro")}</div>
 </div>`;
 }
-}
