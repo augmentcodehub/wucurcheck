@@ -59,7 +59,7 @@ export default {
     const accounts = await listAccounts(env);
     const today = new Date().toDateString();
     const unchecked = accounts
-      .filter(a => a.status === "active" && (!a.checkin_time || new Date(a.checkin_time).toDateString() !== today))
+      .filter(a => a.status === "active" && (!a.platform || a.platform === "wucur") && (!a.checkin_time || new Date(a.checkin_time).toDateString() !== today))
       .map(a => ({ username: a.username, password: a.password }));
     if (unchecked.length > 0) {
       const r2 = await triggerWorkflow(env, {
