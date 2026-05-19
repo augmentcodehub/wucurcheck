@@ -166,10 +166,8 @@ function showDetail(username) {
 }
 function copyDetail() {
   const a = accounts.find(i => i.username === document.getElementById("detail-title").textContent.replace("账号详情 - ",""));
-  if (!a) return;
-  let text = "用户名: "+a.username+"\\n密码: "+a.password+"\\n平台: "+(a.platform||"-");
-  if (a.sso_token) text += "\\nSSO Token: "+a.sso_token;
-  navigator.clipboard.writeText(text).then(()=>showToast("✅ 已复制",true)).catch(()=>showToast("❌ 复制失败",false));
+  if (!a || !a.sso_token) { showToast("❌ 无 SSO Token",false); return; }
+  navigator.clipboard.writeText(a.sso_token).then(()=>showToast("✅ 已复制 SSO Token",true)).catch(()=>showToast("❌ 复制失败",false));
 }
 function showToast(msg, ok) {
   const t = document.getElementById("toast");
