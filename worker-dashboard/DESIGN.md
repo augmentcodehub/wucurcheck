@@ -239,7 +239,69 @@ src/views/
 2. 在 `pages/accounts.js` 中 import 并组装到 content 数组
 3. 前端 JS 逻辑统一放 `client_script.js`
 
-## 10. Agent Prompt Guide
+## 10. Custom Component Rules
+
+自定义组件必须与 daisyUI 风格一致，遵守以下规则：
+
+### 颜色：只用 daisyUI CSS 变量
+
+```css
+/* ✅ 正确：跟随主题自动变 */
+.custom-widget {
+  background: oklch(var(--b1));        /* base-100 */
+  color: oklch(var(--bc));             /* base-content */
+  border: 1px solid oklch(var(--b3));  /* base-300 */
+}
+
+/* ❌ 禁止：硬编码颜色 */
+.custom-widget {
+  background: #ffffff;
+  color: #333333;
+}
+```
+
+### 可用 CSS 变量
+
+| 变量 | 语义 | 对应 class |
+|------|------|-----------|
+| `--b1` | 基础背景 | `bg-base-100` |
+| `--b2` | 次级背景 | `bg-base-200` |
+| `--b3` | 边框/分隔 | `border-base-300` |
+| `--bc` | 基础文字 | `text-base-content` |
+| `--p` | 主色 | `bg-primary` |
+| `--su` | 成功 | `bg-success` |
+| `--wa` | 警告 | `bg-warning` |
+| `--er` | 错误 | `bg-error` |
+| `--rounded-box` | 统一圆角 | `rounded-box` |
+
+### 组合优先，不造新轮子
+
+```html
+<!-- ✅ 组合 daisyUI 现有 class -->
+<div class="card bg-base-100 shadow">
+  <div class="card-body p-4">
+    <span class="badge badge-success badge-sm">状态</span>
+    <button class="btn btn-primary btn-xs">操作</button>
+  </div>
+</div>
+
+<!-- ❌ 不要自己写一套样式 -->
+<div style="background:#fff; border-radius:8px; padding:16px;">
+```
+
+### 圆角和阴影
+
+- 圆角统一用 `rounded-box`（跟随主题），不用 `rounded-lg`
+- 阴影用 `shadow`（daisyUI 标准），不用 `shadow-md`
+
+### 验证方法
+
+自定义组件写完后，切换到以下主题检查是否正常：
+- `light`（浅色）→ `dark`（深色）→ `dracula`（高对比）→ `pastel`（低对比）
+
+四个主题下都可读、不破版，说明颜色用对了。
+
+## 11. Agent Prompt Guide
 
 当需要 AI 修改 UI 时，可以这样提示：
 
