@@ -69,14 +69,13 @@ export function renderTable(accounts) {
   const kiroAccounts = accounts.filter(a => a.platform === "kiro");
 
   return `
-<div role="tablist" class="tabs tabs-lifted tabs-lg">
-  <input type="radio" name="platform-tabs" role="tab" class="tab font-semibold" aria-label="🔥 Wucur (${wucurAccounts.length})" checked onclick="switchTab('wucur')"/>
-  <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-4" id="tab-wucur">
-    ${renderTableBlock(wucurAccounts, "tbody-wucur")}
-  </div>
-  <input type="radio" name="platform-tabs" role="tab" class="tab font-semibold" aria-label="🚀 Kiro (${kiroAccounts.length})" onclick="switchTab('kiro')"/>
-  <div role="tabpanel" class="tab-content bg-base-100 border-base-300 rounded-box p-4" id="tab-kiro">
-    ${renderTableBlock(kiroAccounts, "tbody-kiro")}
-  </div>
+<div role="tablist" class="tabs tabs-lifted tabs-lg mb-0">
+  <a role="tab" class="tab tab-active font-semibold" id="tab-btn-wucur" onclick="switchTab('wucur')">🔥 Wucur (${wucurAccounts.length})</a>
+  <a role="tab" class="tab font-semibold" id="tab-btn-kiro" onclick="switchTab('kiro')">🚀 Kiro (${kiroAccounts.length})</a>
+</div>
+<div class="border border-base-300 border-t-0 rounded-b-box bg-base-100 p-4">
+  <div id="tab-wucur">${renderTableBlock(wucurAccounts, "tbody-wucur")}</div>
+  <div id="tab-kiro" class="hidden">${renderTableBlock(kiroAccounts, "tbody-kiro")}</div>
 </div>`;
+}
 }

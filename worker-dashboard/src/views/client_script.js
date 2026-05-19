@@ -10,7 +10,14 @@ export function renderClientScript(accountsJson) {
 const accounts = ${accountsJson};
 const PAGE_SIZE = 10;
 let currentTab = "wucur";
-function switchTab(tab) { currentTab = tab; renderTabPage(tab, 1); }
+function switchTab(tab) {
+  currentTab = tab;
+  document.getElementById("tab-wucur").classList.toggle("hidden", tab !== "wucur");
+  document.getElementById("tab-kiro").classList.toggle("hidden", tab !== "kiro");
+  document.getElementById("tab-btn-wucur").classList.toggle("tab-active", tab === "wucur");
+  document.getElementById("tab-btn-kiro").classList.toggle("tab-active", tab === "kiro");
+  renderTabPage(tab, 1);
+}
 function renderTabPage(tab, page) {
   const tbody = document.getElementById("tbody-"+tab);
   if (!tbody) return;
