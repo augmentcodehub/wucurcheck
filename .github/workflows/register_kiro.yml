@@ -1,0 +1,143 @@
+name: 注册 Kiro (AWS Builder ID) 账号
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: '注册数量（默认1）'
+        required: false
+        default: '1'
+        type: string
+      email_domain:
+        description: '邮箱域名'
+        required: false
+        default: 'ouraihub.com'
+        type: string
+      proxy:
+        description: '代理地址（可选）'
+        required: false
+        default: ''
+        type: string
+      callback_url:
+        description: '回调地址（可选）'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  register:
+    runs-on: windows-2025
+    environment: production
+    env:
+      PYTHONIOENCODING: utf-8
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+      with:
+        version: "latest"
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+
+    - name: 缓存 UV 依赖
+      uses: actions/cache@v5
+      id: uv-cache
+      with:
+        path: |
+          ~/.cache/uv
+          .venv
+        key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-uv-
+
+    - name: 安装依赖
+      if: steps.uv-cache.outputs.cache-hit != 'true'
+      run: uv sync
+
+    - name: 安装 Playwright 浏览器
+      run: uv run python -m playwright install chromium
+
+    - name: 批量注册 Kiro 账号
+      id: register
+      env:
+        EMAIL_API_KEY: ${{ secrets.OURAIHUB_EMAIL_API_KEY }}
+      run: |
+        New-Item -ItemType Directory -Force -Path "artifacts" | Out-Null
+        $count = [int]"${{ inputs.count }}"
+        $results = @()
+
+        for ($i = 0; $i -lt $count; $i++) {
+          echo "--- 注册第 $($i+1)/$count 个账号 ---"
+
+          $args = @(
+            "python/src/cli/register_kiro.py",
+            "--email-provider", "ouraihub",
+            "--email-api-key", $env:EMAIL_API_KEY,
+            "--email-domain", "${{ inputs.email_domain }}",
+            "--code-timeout", "180",
+            "--json"
+          )
+
+          $proxy = "${{ inputs.proxy }}"
+          if ($proxy) {
+            $args += @("--proxy", $proxy)
+          }
+
+          $output = uv run python @args 2>&1 | Out-String
+          echo $output
+
+          try {
+            $result = $output | ConvertFrom-Json
+            $results += @{
+              email = $result.email
+              name = $result.name
+              password = $result.password
+              sso_token = if ($result.sso_token) { $result.sso_token.Substring(0, [Math]::Min(20, $result.sso_token.Length)) + "..." } else { $null }
+              success = $result.success
+              error = $result.error
+            }
+          } catch {
+            $results += @{
+              email = "unknown"
+              success = $false
+              error = "Failed to parse output"
+            }
+          }
+
+          if ($i -lt $count - 1) {
+            Start-Sleep -Seconds 15
+          }
+        }
+
+        $results | ConvertTo-Json -Depth 3 | Out-File -FilePath artifacts/kiro_register_results.json -Encoding utf8
+        $succeeded = ($results | Where-Object { $_.success }).Count
+        echo "注册完成: $succeeded/$count 成功"
+
+    - name: 上传结果
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: kiro-register-results
+        path: artifacts/
+
+    - name: 回调 Worker Dashboard
+      if: always()
+      env:
+        CALLBACK_URL: ${{ inputs.callback_url || secrets.WORKER_CALLBACK_URL }}
+        CALLBACK_SECRET: ${{ secrets.WORKER_CALLBACK_SECRET }}
+      run: |
+        if (-not $env:CALLBACK_URL) { echo "跳过回调"; exit 0 }
+        if (-not (Test-Path artifacts/kiro_register_results.json)) { echo "无结果文件"; exit 0 }
+        $results = Get-Content artifacts/kiro_register_results.json | ConvertFrom-Json
+        $body = @{
+          secret = $env:CALLBACK_SECRET
+          action = "kiro_batch_result"
+          data = @{ results = $results }
+        } | ConvertTo-Json -Depth 4
+        try {
+          Invoke-RestMethod -Uri $env:CALLBACK_URL -Method POST -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -ContentType "application/json; charset=utf-8"
+          echo "回调成功"
+        } catch {
+          echo "回调失败: $_"
+        }
