@@ -164,6 +164,13 @@ function showDetail(username) {
   if (a.sso_token) { ssoRow.classList.remove("hidden"); document.getElementById("detail-sso-token").textContent = a.sso_token; } else { ssoRow.classList.add("hidden"); }
   document.getElementById("account-detail").showModal();
 }
+function copyDetail() {
+  const a = accounts.find(i => i.username === document.getElementById("detail-title").textContent.replace("账号详情 - ",""));
+  if (!a) return;
+  let text = "用户名: "+a.username+"\\n密码: "+a.password+"\\n平台: "+(a.platform||"-");
+  if (a.sso_token) text += "\\nSSO Token: "+a.sso_token;
+  navigator.clipboard.writeText(text).then(()=>showToast("✅ 已复制",true)).catch(()=>showToast("❌ 复制失败",false));
+}
 function showToast(msg, ok) {
   const t = document.getElementById("toast");
   const m = document.getElementById("toast-msg");

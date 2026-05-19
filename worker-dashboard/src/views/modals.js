@@ -31,7 +31,10 @@ export function renderDetailModal() {
       <div><span class="font-semibold">最近结果：</span><span id="detail-last-result"></span></div>
       <div id="detail-sso-row" class="hidden"><span class="font-semibold">SSO Token：</span><span id="detail-sso-token" class="break-all text-xs font-mono"></span></div>
     </div>
-    <div class="modal-action"><form method="dialog"><button class="btn">关闭</button></form></div>
+    <div class="modal-action">
+      <button class="btn btn-sm btn-outline" onclick="copyDetail()">📋 复制</button>
+      <form method="dialog"><button class="btn">关闭</button></form>
+    </div>
   </div>
 </dialog>`;
 }
