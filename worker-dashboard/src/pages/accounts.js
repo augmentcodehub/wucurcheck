@@ -2,7 +2,7 @@ import { layout } from "../layout.js";
 import { listAccounts } from "../lib/store.js";
 import { isToday } from "../views/helpers.js";
 import { renderToolbar, renderTable } from "../views/account_table.js";
-import { renderDetailModal, renderRegisterModal } from "../views/modals.js";
+import { renderDetailModal, renderRegisterModal, renderRegisterKiroModal } from "../views/modals.js";
 import { renderSettingsPanel } from "../views/settings_panel.js";
 import { renderClientScript } from "../views/client_script.js";
 
@@ -18,6 +18,7 @@ export async function pageAccounts(request, env) {
     renderDetailModal(),
     renderSettingsPanel(),
     renderRegisterModal(),
+    renderRegisterKiroModal(),
     renderClientScript(accountsJson),
   ].join("\n");
 

@@ -1,5 +1,23 @@
 /** Modal dialogs */
 
+export function renderRegisterKiroModal() {
+  return `
+<dialog id="register-kiro-modal" class="modal">
+  <div class="modal-box">
+    <h3 class="text-lg font-bold mb-4">🚀 注册 Kiro 账号</h3>
+    <div class="space-y-3">
+      <div><label class="label text-sm">数量</label><input id="kiro-count" type="number" value="1" min="1" max="10" class="input input-bordered input-sm w-full"/></div>
+      <div><label class="label text-sm">邮箱域名</label><input id="kiro-domain" type="text" value="ouraihub.com" class="input input-bordered input-sm w-full"/></div>
+      <div><label class="label text-sm">代理（可选）</label><input id="kiro-proxy" type="text" placeholder="socks5://..." class="input input-bordered input-sm w-full"/></div>
+    </div>
+    <div class="modal-action">
+      <form method="dialog"><button class="btn btn-sm">取消</button></form>
+      <button id="kiro-submit" class="btn btn-info btn-sm" onclick="doRegisterKiro(event)">开始注册</button>
+    </div>
+  </div>
+</dialog>`;
+}
+
 export function renderDetailModal() {
   return `
 <dialog id="account-detail" class="modal">

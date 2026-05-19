@@ -110,6 +110,17 @@ async function doRegister(event) {
     if (d.success) { setTimeout(() => { fetch("/api/trigger",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"checkin_unchecked"})}); showToast("🔄 自动触发签到未签到账号",true); }, ${AUTO_CHECKIN_DELAY_MS}); }
   } finally { btn.classList.remove("loading","loading-spinner"); }
 }
+async function doRegisterKiro(event) {
+  const btn = event.currentTarget;
+  btn.classList.add("loading","loading-spinner");
+  const body = { action:"register_kiro", inputs:{ count:document.getElementById("kiro-count").value, email_domain:document.getElementById("kiro-domain").value, proxy:document.getElementById("kiro-proxy").value }};
+  try {
+    const r = await fetch("/api/trigger", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+    const d = await r.json();
+    document.getElementById("register-kiro-modal").close();
+    showToast(d.success ? "✅ 已触发注册 "+body.inputs.count+" 个 Kiro 账号" : "❌ "+(d.error||d.error_code||"FAILED"), d.success);
+  } finally { btn.classList.remove("loading","loading-spinner"); }
+}
 async function trigger(event, target) {
   const btn = event?.currentTarget;
   if (btn) btn.classList.add("loading","loading-spinner");
