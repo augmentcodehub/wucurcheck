@@ -24,21 +24,21 @@ function renderTabPage(tab, page) {
   rows.forEach((row, i) => { row.style.display = (i >= (page-1)*PAGE_SIZE && i < page*PAGE_SIZE) ? "" : "none"; });
   const pg = document.getElementById("tbody-"+tab+"-pagination");
   if (totalPages <= 1) { pg.innerHTML = ""; return; }
-  let html = '<button class="btn btn-xs '+(page===1?'btn-disabled':'')+'" onclick="renderTabPage(\''+tab+'\','+(page-1)+')">«</button>';
-  for (let p = 1; p <= totalPages; p++) { html += '<button class="btn btn-xs '+(p===page?'btn-primary':'')+'" onclick="renderTabPage(\''+tab+'\','+p+')">'+p+'</button>'; }
-  html += '<button class="btn btn-xs '+(page===totalPages?'btn-disabled':'')+'" onclick="renderTabPage(\''+tab+'\','+(page+1)+')">»</button>';
+  let html = '<button class="btn btn-xs '+(page===1?'btn-disabled':'')+'" onclick="renderTabPage(\\\''+tab+'\\\','+(page-1)+')">«</button>';
+  for (let p = 1; p <= totalPages; p++) { html += '<button class="btn btn-xs '+(p===page?'btn-primary':'')+'" onclick="renderTabPage(\\\''+tab+'\\\','+p+')">'+p+'</button>'; }
+  html += '<button class="btn btn-xs '+(page===totalPages?'btn-disabled':'')+'" onclick="renderTabPage(\\\''+tab+'\\\','+(page+1)+')">»</button>';
   pg.innerHTML = html;
 }
 document.addEventListener("DOMContentLoaded", () => { renderTabPage("wucur", 1); renderTabPage("kiro", 1); });
 const MAX_TOTAL = ${MAX_EMAIL_LENGTH};
-const EXAMPLES = ${JSON.stringify(EXAMPLES)};
+const COMBO_EXAMPLES = ${JSON.stringify(EXAMPLES)};
 
 function updatePreview() {
   const combo = document.getElementById("reg-prefix").value;
   const domain = document.getElementById("reg-domain").value;
   const pwd = document.getElementById("reg-password").value;
   const maxLocal = MAX_TOTAL - domain.length - 2;
-  const samples = EXAMPLES[combo] || EXAMPLES["fruit+animal"];
+  const samples = COMBO_EXAMPLES[combo] || COMBO_EXAMPLES["fruit+animal"];
   const sample = samples[0] + "@" + domain;
   document.getElementById("reg-preview").textContent = sample + "  (共" + sample.length + "字符)";
   const msgs = [];
