@@ -5,6 +5,10 @@ from typing import Literal
 
 import httpx
 
+from utils.logger import get_logger
+
+log = get_logger('utils.notify')
+
 
 class NotificationKit:
 	def __init__(self):
