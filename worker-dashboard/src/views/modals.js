@@ -32,7 +32,7 @@ export function renderDetailModal() {
       <div id="detail-sso-row" class="hidden"><span class="font-semibold">SSO Token：</span><span id="detail-sso-token" class="break-all text-xs font-mono"></span></div>
     </div>
     <div class="modal-action">
-      <button class="btn btn-sm btn-outline" onclick="copyDetail()">📋 复制</button>
+      <button class="btn" onclick="copyDetail()">📋 复制</button>
       <form method="dialog"><button class="btn">关闭</button></form>
     </div>
   </div>
