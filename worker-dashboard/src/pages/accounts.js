@@ -16,12 +16,12 @@ export async function pageAccounts(request, env) {
 
   const content = [
     renderToolbar(accounts.length, wucurToday, wucurAccounts.length, kiroAccounts.length),
-    renderTable(accounts),
-    '<div id="toast" class="toast toast-end hidden"><div class="alert" id="toast-msg"></div></div>',
     renderDetailModal(),
-    renderSettingsPanel(),
     renderRegisterModal(),
     renderRegisterKiroModal(),
+    renderTable(accounts),
+    '<div id="toast" class="toast toast-end hidden"><div class="alert" id="toast-msg"></div></div>',
+    renderSettingsPanel(),
     renderClientScript(accountsJson),
   ].join("\n");
 
