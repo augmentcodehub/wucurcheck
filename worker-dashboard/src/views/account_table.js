@@ -2,7 +2,7 @@
 
 import { badge, timeAgo, esc, isToday } from "./helpers.js";
 
-export function renderToolbar(totalCount, todayCount) {
+export function renderToolbar(totalCount, wucurToday, wucurCount, kiroCount) {
   return `
 <div class="flex items-center justify-between mb-4">
   <h2 class="text-2xl font-bold">账号管理</h2>
@@ -25,8 +25,9 @@ export function renderToolbar(totalCount, todayCount) {
 </div>
 <div class="stats shadow mb-4">
   <div class="stat"><div class="stat-title">总账号</div><div class="stat-value">${totalCount}</div></div>
-  <div class="stat"><div class="stat-title">今日签到</div><div class="stat-value text-success">${todayCount}</div></div>
-  <div class="stat"><div class="stat-title">未签到</div><div class="stat-value text-warning">${totalCount - todayCount}</div></div>
+  <div class="stat"><div class="stat-title">Wucur 签到</div><div class="stat-value text-success">${wucurToday}/${wucurCount}</div></div>
+  <div class="stat"><div class="stat-title">Wucur 未签</div><div class="stat-value text-warning">${wucurCount - wucurToday}</div></div>
+  <div class="stat"><div class="stat-title">Kiro</div><div class="stat-value text-info">${kiroCount}</div></div>
 </div>`;
 }
 
