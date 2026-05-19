@@ -97,6 +97,12 @@ jobs:
               last_result = if ($result.success) { "注册成功" } else { "注册失败: $($result.error)" }
               name = $result.name
               sso_token = $result.sso_token
+              access_token = $result.access_token
+              refresh_token = $result.refresh_token
+              client_id = $result.client_id
+              client_secret = $result.client_secret
+              region = $result.region
+              expires_in = $result.expires_in
             }
           } catch {
             $results += @{
