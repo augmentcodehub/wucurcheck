@@ -114,4 +114,16 @@ def _default_profiles() -> dict[str, ProviderProfile]:
 			bypass_method=None,
 			waf_cookie_names=None,
 		),
+		'kiro': ProviderProfile(
+			name='kiro',
+			domain='https://profile.aws.amazon.com',
+			login_path='/start',
+			login_api_path=None,
+			sign_in_path=None,
+			user_info_path=None,
+			api_user_key=None,
+			auth_mode='browser_automation',
+			bypass_method=None,
+			waf_cookie_names=None,
+		),
 	}
