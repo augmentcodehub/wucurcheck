@@ -36,7 +36,7 @@ function renderRows(accounts) {
       (a) => `<tr data-platform="${esc(a.platform || "")}">
     <td><input type="checkbox" class="checkbox checkbox-xs row-check" value="${esc(a.username)}"/></td>
     <td class="font-mono">${esc(a.username)}</td>
-    <td class="font-mono text-xs"><span class="cursor-pointer" onclick="this.textContent=this.dataset.p" data-p="${esc(a.password)}">••••••</span></td>
+    <td class="font-mono text-xs"><span class="cursor-pointer" onclick="if(this.textContent==='••••••'){this.textContent=this.dataset.p}else{this.textContent='••••••'}" data-p="${esc(a.password)}">••••••</span></td>
     <td>${a.balance ?? "-"}</td>
     <td>${a.checkin_time ? timeAgo(a.checkin_time) : "-"}</td>
     <td>${badge(a.status)}</td>
