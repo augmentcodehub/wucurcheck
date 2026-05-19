@@ -23,6 +23,7 @@ AWS_SENDERS = [
     'account-update@amazon.com',
     'no-reply@aws.amazon.com',
     'noreply@aws.amazon.com',
+    'amazonses.com',
 ]
 
 
