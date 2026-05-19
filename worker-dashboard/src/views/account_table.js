@@ -69,11 +69,12 @@ export function renderTable(accounts) {
   const kiroAccounts = accounts.filter(a => a.platform === "kiro");
 
   return `
-<div class="tabs tabs-lift tabs-lg">
-  <input type="radio" name="platform_tabs" class="tab" aria-label="🔥 Wucur (${wucurAccounts.length})" checked="checked" />
-  <div class="tab-content bg-base-100 border-base-300 p-6">${renderTableBlock(wucurAccounts, "tbody-wucur")}</div>
-
-  <input type="radio" name="platform_tabs" class="tab" aria-label="🚀 Kiro (${kiroAccounts.length})" />
-  <div class="tab-content bg-base-100 border-base-300 p-6">${renderTableBlock(kiroAccounts, "tbody-kiro")}</div>
+<div role="tablist" class="tabs tabs-lift tabs-lg">
+  <a role="tab" class="tab tab-active" id="tab-btn-wucur" onclick="switchTab('wucur')">🔥 Wucur (${wucurAccounts.length})</a>
+  <a role="tab" class="tab" id="tab-btn-kiro" onclick="switchTab('kiro')">🚀 Kiro (${kiroAccounts.length})</a>
+</div>
+<div class="bg-base-100 border border-base-300 border-t-0 rounded-b-box p-6">
+  <div id="tab-wucur">${renderTableBlock(wucurAccounts, "tbody-wucur")}</div>
+  <div id="tab-kiro" class="hidden">${renderTableBlock(kiroAccounts, "tbody-kiro")}</div>
 </div>`;
 }

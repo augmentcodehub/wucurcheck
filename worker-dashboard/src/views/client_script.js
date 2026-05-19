@@ -9,6 +9,12 @@ export function renderClientScript(accountsJson) {
 <script>
 const accounts = ${accountsJson};
 const PAGE_SIZE = 10;
+function switchTab(tab) {
+  document.getElementById("tab-wucur").classList.toggle("hidden", tab !== "wucur");
+  document.getElementById("tab-kiro").classList.toggle("hidden", tab !== "kiro");
+  document.getElementById("tab-btn-wucur").classList.toggle("tab-active", tab === "wucur");
+  document.getElementById("tab-btn-kiro").classList.toggle("tab-active", tab === "kiro");
+}
 function renderTabPage(tab, page) {
   const tbody = document.getElementById("tbody-"+tab);
   if (!tbody) return;
