@@ -9,37 +9,23 @@ export function renderClientScript(accountsJson) {
 <script>
 const accounts = ${accountsJson};
 const PAGE_SIZE = 10;
-let currentPage = 1;
-let currentPlatform = "";
-function filterPlatform(platform) {
-  currentPlatform = platform;
-  const rows = document.querySelectorAll("#account-tbody tr");
-  rows.forEach(row => {
-    if (!platform || row.dataset.platform === platform) { row.classList.remove("platform-hidden"); }
-    else { row.classList.add("platform-hidden"); }
-  });
-  renderPage(1);
-}
-function renderPage(page) {
-  currentPage = page;
-  const tbody = document.getElementById("account-tbody");
-  const rows = Array.from(tbody.querySelectorAll("tr:not(.platform-hidden)"));
+let currentTab = "wucur";
+function switchTab(tab) { currentTab = tab; renderTabPage(tab, 1); }
+function renderTabPage(tab, page) {
+  const tbody = document.getElementById("tbody-"+tab);
+  if (!tbody) return;
+  const rows = Array.from(tbody.querySelectorAll("tr"));
   const total = rows.length;
-  tbody.querySelectorAll("tr").forEach(r => r.style.display = "none");
   const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
-  rows.forEach((row, i) => {
-    row.style.display = (i >= (page-1)*PAGE_SIZE && i < page*PAGE_SIZE) ? "" : "none";
-  });
-  const pg = document.getElementById("pagination");
+  rows.forEach((row, i) => { row.style.display = (i >= (page-1)*PAGE_SIZE && i < page*PAGE_SIZE) ? "" : "none"; });
+  const pg = document.getElementById("tbody-"+tab+"-pagination");
   if (totalPages <= 1) { pg.innerHTML = ""; return; }
-  let html = '<button class="btn btn-xs '+(page===1?'btn-disabled':'')+'" onclick="renderPage('+(page-1)+')">«</button>';
-  for (let p = 1; p <= totalPages; p++) {
-    html += '<button class="btn btn-xs '+(p===page?'btn-primary':'')+'" onclick="renderPage('+p+')">'+p+'</button>';
-  }
-  html += '<button class="btn btn-xs '+(page===totalPages?'btn-disabled':'')+'" onclick="renderPage('+(page+1)+')">»</button>';
+  let html = '<button class="btn btn-xs '+(page===1?'btn-disabled':'')+'" onclick="renderTabPage(\''+tab+'\','+(page-1)+')">«</button>';
+  for (let p = 1; p <= totalPages; p++) { html += '<button class="btn btn-xs '+(p===page?'btn-primary':'')+'" onclick="renderTabPage(\''+tab+'\','+p+')">'+p+'</button>'; }
+  html += '<button class="btn btn-xs '+(page===totalPages?'btn-disabled':'')+'" onclick="renderTabPage(\''+tab+'\','+(page+1)+')">»</button>';
   pg.innerHTML = html;
 }
-document.addEventListener("DOMContentLoaded", () => renderPage(1));
+document.addEventListener("DOMContentLoaded", () => { renderTabPage("wucur", 1); renderTabPage("kiro", 1); });
 const MAX_TOTAL = ${MAX_EMAIL_LENGTH};
 const EXAMPLES = ${JSON.stringify(EXAMPLES)};
 
