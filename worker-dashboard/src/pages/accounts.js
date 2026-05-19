@@ -10,9 +10,12 @@ export async function pageAccounts(request, env) {
   const accounts = await listAccounts(env);
   const accountsJson = JSON.stringify(accounts).replace(/</g, "\\u003c");
   const todayCount = accounts.filter((a) => isToday(a.checkin_time)).length;
+  const wucurAccounts = accounts.filter((a) => !a.platform || a.platform === "wucur");
+  const kiroAccounts = accounts.filter((a) => a.platform === "kiro");
+  const wucurToday = wucurAccounts.filter((a) => isToday(a.checkin_time)).length;
 
   const content = [
-    renderToolbar(accounts.length, todayCount),
+    renderToolbar(accounts.length, wucurToday, wucurAccounts.length, kiroAccounts.length),
     renderTable(accounts),
     '<div id="toast" class="toast toast-end hidden"><div class="alert" id="toast-msg"></div></div>',
     renderDetailModal(),
