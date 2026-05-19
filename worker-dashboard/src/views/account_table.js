@@ -8,6 +8,7 @@ export function renderToolbar(totalCount, todayCount) {
   <h2 class="text-2xl font-bold">账号管理</h2>
   <div class="flex gap-2">
     <button type="button" class="btn btn-success btn-sm" onclick="document.getElementById('register-modal').showModal()">➕ 批量注册</button>
+    <button type="button" class="btn btn-info btn-sm" onclick="document.getElementById('register-kiro-modal').showModal()">🚀 注册 Kiro</button>
     <button type="button" class="btn btn-primary btn-sm" onclick="trigger(event, '')">🔄 手动触发签到</button>
     <button type="button" class="btn btn-accent btn-sm" onclick="checkinUnchecked(event)">⚡ 一键签到未签到</button>
     <a href="/api/export/csv" class="btn btn-ghost btn-sm">📥 导出CSV</a>
