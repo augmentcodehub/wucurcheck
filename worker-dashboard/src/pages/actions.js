@@ -63,7 +63,7 @@ export async function apiTrigger(request, env) {
     const accounts = await listAccounts(env);
     const today = new Date().toDateString();
     const unchecked = accounts
-      .filter(a => a.status === "active" && (!a.checkin_time || new Date(a.checkin_time).toDateString() !== today))
+      .filter(a => a.status === "active" && (!a.platform || a.platform === "wucur") && (!a.checkin_time || new Date(a.checkin_time).toDateString() !== today))
       .map(a => ({ username: a.username, password: a.password }));
     if (!unchecked.length) {
       return Response.json({ success: false, error_code: "NO_UNCHECKED", error: "所有账号今日已签到" }, { status: 400 });
