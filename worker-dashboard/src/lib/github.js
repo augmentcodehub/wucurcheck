@@ -11,6 +11,8 @@ export async function triggerWorkflow(env, { action, target, callbackUrl, inputs
   // 根据 action 选择 workflow
   const workflow = action === "register"
     ? "register.yml"
+    : action === "register_kiro"
+    ? "register_kiro.yml"
     : action === "checkin_unchecked"
     ? "checkin_batch.yml"
     : (env.GITHUB_WORKFLOW || "checkin.yml");
@@ -30,6 +32,13 @@ export async function triggerWorkflow(env, { action, target, callbackUrl, inputs
       email_prefix: inputs?.email_prefix || "fruit+animal",
       email_domain: inputs?.email_domain || "qq.com",
       password: inputs?.password || "",
+      callback_url: callbackUrl || "",
+    };
+  } else if (action === "register_kiro") {
+    workflowInputs = {
+      count: inputs?.count || "1",
+      email_domain: inputs?.email_domain || "ouraihub.com",
+      proxy: inputs?.proxy || "",
       callback_url: callbackUrl || "",
     };
   } else if (action === "checkin_unchecked") {
