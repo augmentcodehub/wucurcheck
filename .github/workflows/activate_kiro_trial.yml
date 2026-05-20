@@ -1,0 +1,224 @@
+name: 激活 Kiro Trial (实验)
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: '目标账号邮箱（留空=全部未激活的）'
+        required: false
+        default: ''
+      callback_url:
+        description: '回调地址'
+        required: false
+        default: ''
+
+jobs:
+  activate:
+    runs-on: windows-2025
+    timeout-minutes: 15
+    concurrency:
+      group: kiro-activate
+      cancel-in-progress: false
+    env:
+      PYTHONIOENCODING: utf-8
+    steps:
+    - uses: actions/checkout@v6
+
+    - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+      with:
+        version: "latest"
+
+    - uses: actions/setup-python@v6
+      with:
+        python-version: '3.11'
+
+    - name: 安装依赖
+      run: uv sync
+
+    - name: 安装 kiro-cli
+      shell: pwsh
+      run: |
+        # Download and install kiro-cli
+        $url = "https://desktop-release.codewhisperer.us-east-1.amazonaws.com/latest/kiro-cli/x86_64-pc-windows-msvc/kiro-cli.exe"
+        $dest = "$env:LOCALAPPDATA\Programs\kiro-cli"
+        New-Item -ItemType Directory -Force -Path $dest | Out-Null
+        Invoke-WebRequest -Uri $url -OutFile "$dest\kiro-cli.exe" -UseBasicParsing
+        echo "$dest" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        echo "[OK] kiro-cli installed"
+
+    - name: 激活 Trial
+      id: activate
+      shell: pwsh
+      env:
+        WORKER_URL: ${{ secrets.WORKER_CALLBACK_URL }}
+        CALLBACK_SECRET: ${{ secrets.WORKER_CALLBACK_SECRET }}
+      run: |
+        $target = "${{ inputs.target }}"
+        
+        # Get accounts from Worker API
+        $headers = @{ "x-worker-token" = $env:CALLBACK_SECRET }
+        $accounts = Invoke-RestMethod -Uri "$env:WORKER_URL/../api/accounts" -Headers $headers
+        
+        # Filter Kiro accounts needing activation (no freeTrialInfo, have refresh_token)
+        $toActivate = $accounts | Where-Object {
+          $_.platform -eq "kiro" -and
+          $_.refresh_token -and
+          $_.status -ne "suspended" -and
+          (-not $_.trial_activated)
+        }
+        
+        if ($target) {
+          $toActivate = $toActivate | Where-Object { $_.username -eq $target }
+        }
+        
+        echo "Found $($toActivate.Count) accounts to activate"
+        
+        $results = @()
+        foreach ($account in $toActivate) {
+          echo "--- Activating: $($account.username) ---"
+          
+          # Write tokens to kiro-cli database
+          $dbDir = "$env:LOCALAPPDATA\kiro-cli"
+          New-Item -ItemType Directory -Force -Path $dbDir | Out-Null
+          $dbPath = "$dbDir\data.sqlite3"
+          
+          # Create DB and write tokens using Python
+          $pyScript = @"
+        import sqlite3, sys
+        db = sys.argv[1]
+        conn = sqlite3.connect(db)
+        cur = conn.cursor()
+        cur.execute('CREATE TABLE IF NOT EXISTS auth_kv (key TEXT PRIMARY KEY, value TEXT)')
+        cur.execute('CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value TEXT)')
+        cur.execute('DELETE FROM auth_kv')
+        # Try different key formats
+        tokens = {
+            'builder_id.access_token': sys.argv[2],
+            'builder_id.refresh_token': sys.argv[3],
+            'builder_id.client_id': sys.argv[4],
+            'builder_id.client_secret': sys.argv[5],
+            'builder_id.region': sys.argv[6],
+            'builder_id.start_url': 'https://view.awsapps.com/start',
+            'accessToken': sys.argv[2],
+            'refreshToken': sys.argv[3],
+            'clientId': sys.argv[4],
+            'clientSecret': sys.argv[5],
+        }
+        for k, v in tokens.items():
+            if v:
+                cur.execute('INSERT OR REPLACE INTO auth_kv (key, value) VALUES (?, ?)', (k, v))
+        conn.commit()
+        conn.close()
+        print('DB written')
+        "@
+          
+          python -c $pyScript $dbPath $account.access_token $account.refresh_token $account.client_id $account.client_secret ($account.region ?? "us-east-1")
+          
+          # Try sending a message via kiro-cli
+          $chatResult = $null
+          try {
+            $env:KIRO_CLI_DATA_DIR = $dbDir
+            echo "hi" | timeout 20 kiro-cli chat 2>&1 | Out-String
+            $chatResult = "sent"
+          } catch {
+            $chatResult = "failed: $_"
+          }
+          
+          echo "Chat result: $chatResult"
+          
+          # Check if trial was activated by querying usage API
+          $checkScript = @"
+        import sys, json, cbor2, httpx
+        token = sys.argv[1]
+        resp = httpx.post(
+            'https://app.kiro.dev/service/KiroWebPortalService/operation/GetUserUsageAndLimits',
+            headers={
+                'accept': 'application/cbor',
+                'content-type': 'application/cbor',
+                'smithy-protocol': 'rpc-v2-cbor',
+                'authorization': f'Bearer {token}',
+                'cookie': f'Idp=BuilderId; AccessToken={token}',
+            },
+            content=cbor2.dumps({'isEmailRequired': True, 'origin': 'KIRO_IDE'}),
+            timeout=30,
+        )
+        if resp.status_code == 200:
+            data = cbor2.loads(resp.content)
+            credit = next((b for b in data.get('usageBreakdownList', []) if b.get('resourceType') == 'CREDIT'), {})
+            ft = credit.get('freeTrialInfo')
+            limit = credit.get('usageLimit', 0)
+            bonuses = credit.get('bonuses', [])
+            total = limit + (ft.get('usageLimit', 0) if ft else 0) + sum(b.get('usageLimit', 0) for b in bonuses)
+            print(json.dumps({
+                'base_limit': limit,
+                'free_trial': ft.get('usageLimit', 0) if ft else 0,
+                'free_trial_status': ft.get('freeTrialStatus') if ft else None,
+                'bonuses': len(bonuses),
+                'total_limit': total,
+                'activated': total > limit,
+            }))
+        else:
+            print(json.dumps({'error': f'HTTP {resp.status_code}', 'activated': False}))
+        "@
+          
+          $usageJson = uv run python -c $checkScript $account.access_token 2>&1 | Select-Object -Last 1
+          echo "Usage check: $usageJson"
+          
+          try {
+            $usage = $usageJson | ConvertFrom-Json
+            $results += @{
+              username = $account.username
+              activated = $usage.activated
+              total_limit = $usage.total_limit
+              free_trial = $usage.free_trial
+              chat_result = $chatResult
+            }
+          } catch {
+            $results += @{
+              username = $account.username
+              activated = $false
+              error = "Parse failed: $usageJson"
+              chat_result = $chatResult
+            }
+          }
+          
+          Start-Sleep -Seconds 5
+        }
+        
+        $results | ConvertTo-Json -Depth 3 -AsArray | Out-File -FilePath artifacts/activate_results.json -Encoding utf8
+        New-Item -ItemType Directory -Force -Path artifacts | Out-Null
+        $results | ConvertTo-Json -Depth 3 -AsArray | Out-File -FilePath artifacts/activate_results.json -Encoding utf8
+        
+        $activated = ($results | Where-Object { $_.activated }).Count
+        echo "Results: $activated/$($results.Count) activated"
+
+    - name: 上传结果
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: activate-results
+        path: artifacts/
+
+    - name: 回调 Worker
+      if: always()
+      shell: pwsh
+      env:
+        CALLBACK_URL: ${{ inputs.callback_url || secrets.WORKER_CALLBACK_URL }}
+        CALLBACK_SECRET: ${{ secrets.WORKER_CALLBACK_SECRET }}
+      run: |
+        if (-not $env:CALLBACK_URL) { echo "跳过回调"; exit 0 }
+        if (-not (Test-Path artifacts/activate_results.json)) { echo "无结果"; exit 0 }
+        $results = Get-Content artifacts/activate_results.json | ConvertFrom-Json
+        # Mark activated accounts
+        foreach ($r in $results) {
+          if ($r.activated) {
+            $body = @{
+              secret = $env:CALLBACK_SECRET
+              action = "batch_result"
+              data = @{ results = @(@{ username = $r.username; trial_activated = $true; usage_limit = $r.total_limit }) }
+            } | ConvertTo-Json -Depth 4
+            try {
+              Invoke-RestMethod -Uri $env:CALLBACK_URL -Method POST -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -ContentType "application/json; charset=utf-8"
+            } catch { echo "回调失败: $_" }
+          }
+        }
+        echo "回调完成"
