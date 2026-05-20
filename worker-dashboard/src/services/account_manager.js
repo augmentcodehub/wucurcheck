@@ -10,6 +10,7 @@
 import { log } from "../lib/log.js";
 import { listAccounts, putAccount } from "../lib/store.js";
 import { refreshToken } from "./kiro_token.js";
+import { fetchAccountStatus } from "./kiro_api.js";
 
 /**
  * Refresh a single Kiro account's token and update KV.
@@ -33,7 +34,7 @@ export async function refreshSingleAccount(env, account) {
   }
 
   // Update KV with new credentials
-  await putAccount(env, account.username, {
+  const update = {
     access_token: result.access_token,
     refresh_token: result.refresh_token,
     expires_in: result.expires_in,
@@ -42,8 +43,21 @@ export async function refreshSingleAccount(env, account) {
     token_expires_at: result.expires_in
       ? new Date(Date.now() + result.expires_in * 1000).toISOString()
       : null,
-  });
+  };
 
+  // Fetch usage with new token
+  const status = await fetchAccountStatus(result.access_token, account.idp || "BuilderId");
+  if (status.suspended) {
+    update.status = "suspended";
+    update.last_refresh_error = status.error;
+  } else if (!status.error) {
+    update.usage_current = status.usage_current;
+    update.usage_limit = status.usage_limit;
+    update.subscription_type = status.subscription_type;
+    update.days_remaining = status.days_remaining;
+  }
+
+  await putAccount(env, account.username, update);
   return { success: true };
 }
 
