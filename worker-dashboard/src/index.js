@@ -47,6 +47,17 @@ export default {
     const config = await env.KV.get("config:cron_hour", "json");
     const hours = config || [0];
     const currentHour = new Date().getUTCHours();
+
+    // Kiro token 刷新：每小时都执行（token 1 小时过期）
+    try {
+      const { refreshAllKiroAccounts } = await import("./services/account_manager.js");
+      const refreshResult = await refreshAllKiroAccounts(env);
+      log.info("cron_kiro_refresh", { ...refreshResult });
+    } catch (e) {
+      log.error("cron_kiro_refresh_error", { error: e.message });
+    }
+
+    // Wucur 签到：按配置的小时执行
     if (!hours.includes(currentHour)) return;
     log.info("cron_triggered", { hour: currentHour });
 

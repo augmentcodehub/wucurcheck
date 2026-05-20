@@ -15,6 +15,8 @@ export async function triggerWorkflow(env, { action, target, callbackUrl, inputs
     ? "register_kiro.yml"
     : action === "checkin_unchecked"
     ? "checkin_batch.yml"
+    : action === "kiro_refresh" || action === "kiro_refresh_all"
+    ? "kiro_refresh.yml"
     : (env.GITHUB_WORKFLOW || "checkin.yml");
 
   if (!repo || !token) {
@@ -44,6 +46,11 @@ export async function triggerWorkflow(env, { action, target, callbackUrl, inputs
   } else if (action === "checkin_unchecked") {
     workflowInputs = {
       accounts_json: inputs?.accounts_json || "[]",
+      callback_url: callbackUrl || "",
+    };
+  } else if (action === "kiro_refresh" || action === "kiro_refresh_all") {
+    workflowInputs = {
+      target: target || "",
       callback_url: callbackUrl || "",
     };
   } else {
