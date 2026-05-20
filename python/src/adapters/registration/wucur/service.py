@@ -31,6 +31,15 @@ class WucurRegistrationService(RegistrationService):
         raw_pw = kwargs.get("password")
         password = (str(raw_pw) if raw_pw else None) or config.password or generate_password()
 
+        # Validate username length (wucur max = 20)
+        if len(email) > 20:
+            return RegistrationResult(
+                success=False,
+                username=email,
+                platform=self.platform,
+                error=f"Username too long ({len(email)} > 20 chars)",
+            )
+
         try:
             with httpx.Client(timeout=30) as client:
                 result = register_account(client, email, password)

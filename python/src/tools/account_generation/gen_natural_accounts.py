@@ -18,7 +18,7 @@ def generate(count, domain, password, combo):
 
     accounts = []
     used = set()
-    max_local = 20 - len(domain) - 2  # strict: total email < 20
+    max_local = 20 - len(domain) - 1  # total: local + "@" + domain <= 20
     for i in range(count):
         for _ in range(200):
             w1 = random.choice(pool1)
