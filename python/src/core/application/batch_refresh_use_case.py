@@ -1,11 +1,14 @@
-"""Use case: Batch refresh Kiro accounts — refresh tokens and check status in parallel."""
+"""Use case: Batch refresh Kiro accounts — refresh tokens and check status in parallel.
+
+Accepts a CheckAccountStatusUseCase via constructor injection.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Callable
 
 from core.application.check_account_status_use_case import (
     AccountCredentials,
@@ -14,6 +17,8 @@ from core.application.check_account_status_use_case import (
 )
 
 log = logging.getLogger(__name__)
+
+ProgressCallback = Callable[[int, int], None] | None
 
 
 @dataclass
@@ -47,16 +52,25 @@ class BatchSummary:
 
 
 class BatchRefreshUseCase:
-    """Refresh and check status for multiple Kiro accounts with concurrency control."""
+    """Refresh and check status for multiple Kiro accounts with concurrency control.
 
-    def __init__(self, concurrency: int = 10) -> None:
+    Args:
+        status_use_case: Injected CheckAccountStatusUseCase instance.
+        concurrency: Max parallel requests.
+    """
+
+    def __init__(
+        self,
+        status_use_case: CheckAccountStatusUseCase,
+        concurrency: int = 10,
+    ) -> None:
+        self._status_use_case = status_use_case
         self._concurrency = concurrency
-        self._use_case = CheckAccountStatusUseCase()
 
     async def execute(
         self,
         accounts: list[BatchAccount],
-        on_progress: Any = None,
+        on_progress: ProgressCallback = None,
     ) -> BatchSummary:
         summary = BatchSummary(total=len(accounts))
         semaphore = asyncio.Semaphore(self._concurrency)
@@ -64,7 +78,7 @@ class BatchRefreshUseCase:
         async def _process(account: BatchAccount) -> BatchResult:
             async with semaphore:
                 try:
-                    result = await self._use_case.execute(account.credentials)
+                    result = await self._status_use_case.execute(account.credentials)
                     return BatchResult(id=account.id, email=account.email, result=result)
                 except Exception as exc:
                     log.error("Batch refresh failed for %s: %s", account.email, exc)
