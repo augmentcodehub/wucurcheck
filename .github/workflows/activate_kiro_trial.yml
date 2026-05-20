@@ -33,19 +33,42 @@ jobs:
     - name: 下载安装 Kiro IDE
       shell: pwsh
       run: |
-        $url = "https://desktop-release.codewhisperer.us-east-1.amazonaws.com/latest/windows/KiroSetup.exe"
-        echo "[INFO] Downloading Kiro IDE..."
-        Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\KiroSetup.exe" -UseBasicParsing
-        echo "[INFO] Installing Kiro IDE (silent)..."
-        Start-Process -FilePath "$env:TEMP\KiroSetup.exe" -ArgumentList "/S" -Wait -NoNewWindow
-        Start-Sleep -Seconds 5
+        # Try multiple known download URLs
+        $urls = @(
+          "https://desktop-release.q.us-east-1.amazonaws.com/latest/windows/nsis-web/x64/KiroSetup.exe",
+          "https://desktop-release.q.us-east-1.amazonaws.com/latest/windows/KiroSetup.exe",
+          "https://desktop-release.q.us-east-1.amazonaws.com/latest/Kiro-win32-x64.zip"
+        )
+        $downloaded = $false
+        foreach ($url in $urls) {
+          echo "[INFO] Trying: $url"
+          try {
+            Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\KiroSetup.exe" -UseBasicParsing -ErrorAction Stop
+            echo "[OK] Downloaded from: $url"
+            $downloaded = $true
+            break
+          } catch {
+            echo "[WARN] Failed: $_"
+          }
+        }
+        if (-not $downloaded) {
+          echo "[ERROR] All download URLs failed. Trying winget..."
+          winget install --id Amazon.Kiro --accept-source-agreements --accept-package-agreements 2>&1
+        }
+        # Install if we got an exe
+        if (Test-Path "$env:TEMP\KiroSetup.exe") {
+          echo "[INFO] Installing..."
+          Start-Process -FilePath "$env:TEMP\KiroSetup.exe" -ArgumentList "/S" -Wait -NoNewWindow
+          Start-Sleep -Seconds 5
+        }
+        # Find Kiro.exe
         $kiroPath = "$env:LOCALAPPDATA\Programs\Kiro\Kiro.exe"
         if (-not (Test-Path $kiroPath)) {
           $found = Get-ChildItem -Path $env:LOCALAPPDATA,$env:PROGRAMFILES -Recurse -Filter "Kiro.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
           if ($found) { $kiroPath = $found.FullName }
         }
         echo "KIRO_PATH=$kiroPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        echo "[OK] Kiro IDE at: $kiroPath"
+        echo "[RESULT] Kiro IDE at: $kiroPath (exists: $(Test-Path $kiroPath))"
 
     - name: 激活 Trial
       id: activate
