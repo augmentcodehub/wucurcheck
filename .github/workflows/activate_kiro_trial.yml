@@ -37,13 +37,22 @@ jobs:
     - name: 安装 kiro-cli
       shell: pwsh
       run: |
-        # Download and install kiro-cli
-        $url = "https://desktop-release.codewhisperer.us-east-1.amazonaws.com/latest/kiro-cli/x86_64-pc-windows-msvc/kiro-cli.exe"
-        $dest = "$env:LOCALAPPDATA\Programs\kiro-cli"
-        New-Item -ItemType Directory -Force -Path $dest | Out-Null
-        Invoke-WebRequest -Uri $url -OutFile "$dest\kiro-cli.exe" -UseBasicParsing
-        echo "$dest" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-        echo "[OK] kiro-cli installed"
+        # Official Windows installation via PowerShell
+        try {
+          irm https://cli.kiro.dev/install.ps1 | iex
+          echo "[OK] kiro-cli installed via official installer"
+        } catch {
+          # Fallback: download zip directly
+          $url = "https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-windows.zip"
+          $dest = "$env:LOCALAPPDATA\Programs\kiro-cli"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\kirocli.zip" -UseBasicParsing
+          Expand-Archive -Path "$env:TEMP\kirocli.zip" -DestinationPath $dest -Force
+          echo "$dest" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "[OK] kiro-cli installed via zip fallback"
+        }
+        # Verify
+        kiro-cli --version 2>&1 || echo "[WARN] kiro-cli not in PATH yet"
 
     - name: 激活 Trial
       id: activate
