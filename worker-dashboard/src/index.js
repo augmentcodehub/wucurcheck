@@ -57,22 +57,12 @@ export default {
       log.error("cron_kiro_refresh_error", { error: e.message });
     }
 
-    // Kiro 自动注册：每 30 分钟注册 1 个新账号
-    const minute = new Date().getMinutes();
-    if (minute === 0 || minute === 30) {
-      try {
-        const callbackUrl = `${env.WORKER_URL}/callback`;
-        const r = await triggerWorkflow(env, {
-          action: "register_kiro",
-          target: "",
-          callbackUrl,
-          inputs: { count: "1", email_domain: "ouraihub.com" },
-        });
-        log.info("cron_kiro_register", { ok: r.ok });
-      } catch (e) {
-        log.error("cron_kiro_register_error", { error: e.message });
-      }
-    }
+    // Kiro 自动注册：暂停（等 IP 冷却后重新启用）
+    // const minute = new Date().getMinutes();
+    // if (minute === 0 || minute === 30) {
+    //   const callbackUrl = `${env.WORKER_URL}/callback`;
+    //   await triggerWorkflow(env, { action: "register_kiro", target: "", callbackUrl, inputs: { count: "1", email_domain: "ouraihub.com" } });
+    // }
 
     // Wucur 签到：按配置的小时执行
     if (!hours.includes(currentHour)) return;
