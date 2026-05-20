@@ -782,3 +782,165 @@ async def test_sso_device_auth_with_real_token():
 | 6 | `cleanup/remove-legacy` | 删除旧的独立脚本 | 确认新流程稳定后执行 |
 
 每个 PR 独立可测试，合并后旧代码仍可用，直到 Step 6 清理。
+
+## 评审修正
+
+### 修正 1: RegistrationConfig 增加 max_retries 和 password 生成
+
+```python
+class RegistrationConfig:
+    """注册配置基类，每个 provider 继承扩展。"""
+    def __init__(self, *, proxy_url: str | None = None, headless: bool = True,
+                 code_timeout: int = 120, max_retries: int = 2, password: str | None = None):
+        self.proxy_url = proxy_url
+        self.headless = headless
+        self.code_timeout = code_timeout
+        self.max_retries = max_retries
+        self.password = password or generate_password()  # 不传则自动生成唯一密码
+```
+
+### 修正 2: RegisterAccountUseCase 增加重试逻辑
+
+```python
+TRANSIENT_ERRORS = ["timeout", "network", "browser crashed", "page closed"]
+
+class RegisterAccountUseCase:
+    async def execute(self, email: str, config: RegistrationConfig, **kwargs) -> RegistrationResult:
+        last_result = None
+        for attempt in range(1 + config.max_retries):
+            result = await self._service.register(email, config, **kwargs)
+            if result.success:
+                return result
+            last_result = result
+            # 非瞬态错误不重试
+            if not any(t in (result.error or "").lower() for t in TRANSIENT_ERRORS):
+                break
+            if attempt < config.max_retries:
+                log.warning("Transient failure, retrying", extra={
+                    "attempt": attempt + 1, "error": result.error, "email": email
+                })
+                await asyncio.sleep(5)
+        return last_result
+```
+
+### 修正 3: EmailClient.poll_verification_code 增加时间戳过滤
+
+```python
+class EmailClient(ABC):
+    @abstractmethod
+    async def poll_verification_code(
+        self, email: str, *, since: float, timeout: int = 120, interval: int = 5
+    ) -> str | None:
+        """
+        轮询验证码邮件。
+
+        Args:
+            email: 目标邮箱
+            since: Unix 时间戳，只处理此时间之后收到的邮件
+            timeout: 最大等待秒数
+            interval: 轮询间隔秒数
+
+        Returns:
+            验证码字符串，超时返回 None
+        """
+```
+
+OuraihubEmailClient 实现中增加时间过滤：
+
+```python
+async def poll_verification_code(self, email: str, *, since: float, timeout: int = 120, interval: int = 5) -> str | None:
+    deadline = time.time() + timeout
+    checked_ids = set()
+    while time.time() < deadline:
+        messages = await self._fetch_messages(email)
+        for msg in messages:
+            if msg["id"] in checked_ids:
+                continue
+            checked_ids.add(msg["id"])
+            # 时间戳过滤：跳过 since 之前的邮件
+            msg_time = parse_timestamp(msg.get("received_at", ""))
+            if msg_time and msg_time < since:
+                continue
+            code = extract_verification_code(msg.get("body", ""), msg.get("subject", ""))
+            if code:
+                return code
+        await asyncio.sleep(interval)
+    return None
+```
+
+### 修正 4: 浏览器流程增加重发验证码
+
+```python
+class KiroBrowserFlow:
+    async def _wait_for_verification_code(self, page: Page, email: str) -> str | None:
+        """等待验证码，60s 未收到则点重发按钮。"""
+        since = time.time()
+        code = await self._email_client.poll_verification_code(
+            email, since=since, timeout=60, interval=3
+        )
+        if code:
+            return code
+
+        # 尝试点击重发
+        resend = page.locator('[data-testid="resend-code"], :text("Resend"), :text("重新发送")')
+        if await resend.count() > 0:
+            await resend.first.click()
+            log.info("Clicked resend code button", extra={"email": email})
+
+        # 重发后再等 60s
+        return await self._email_client.poll_verification_code(
+            email, since=time.time(), timeout=60, interval=3
+        )
+```
+
+### 修正 5: register_kiro.yml Workflow 加固
+
+```yaml
+jobs:
+  register:
+    runs-on: windows-2025
+    timeout-minutes: 30          # 防止浏览器卡死
+    concurrency:
+      group: kiro-register       # 同一时间只跑一个注册任务
+      cancel-in-progress: false  # 不取消正在运行的
+    environment: production
+```
+
+回调步骤移除 `echo $output`，改为写文件：
+
+```powershell
+# 输出写文件而非 stdout
+$output | Out-File -FilePath "artifacts/register_output.json" -Encoding utf8
+```
+
+### 修正 6: 密码生成工具函数
+
+```python
+# python/src/utils/password.py
+import secrets
+import string
+
+
+def generate_password(length: int = 16) -> str:
+    """生成符合 AWS Builder ID 密码策略的随机密码。
+    
+    要求：至少 1 大写、1 小写、1 数字、1 特殊字符，长度 >= 8。
+    """
+    special = "!@#$&"
+    alphabet = string.ascii_letters + string.digits + special
+    while True:
+        pwd = ''.join(secrets.choice(alphabet) for _ in range(length))
+        if (any(c.isupper() for c in pwd) and any(c.islower() for c in pwd)
+                and any(c.isdigit() for c in pwd) and any(c in special for c in pwd)):
+            return pwd
+```
+
+### 修正 7: 代理策略文档化
+
+| 场景 | 代理方式 | 说明 |
+|------|---------|------|
+| 本地批量注册 | `proxy_pool.py` SOCKS5 轮换 | 43+ 节点，每个注册用不同端口 |
+| GitHub Actions（当前） | Runner 自带 IP | 每次运行 IP 不同，单次 ≤3 个 |
+| GitHub Actions（未来） | 外部代理服务 / self-hosted runner | 需要时接入 |
+
+`RegistrationConfig.proxy_url` 由调用方传入，Use Case 不关心代理来源。批量注册时由外层循环从 `proxy_pool.get_proxies()` 轮换选取。

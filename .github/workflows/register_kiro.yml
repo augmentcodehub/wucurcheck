@@ -26,6 +26,10 @@ on:
 jobs:
   register:
     runs-on: windows-2025
+    timeout-minutes: 30
+    concurrency:
+      group: kiro-register
+      cancel-in-progress: false
     environment: production
     env:
       PYTHONIOENCODING: utf-8
