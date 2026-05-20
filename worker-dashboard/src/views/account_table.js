@@ -109,7 +109,8 @@ function renderWucurTable(accounts) {
 function renderKiroTable(accounts) {
   const rows = renderKiroRows(accounts);
   return `
-<div class="flex justify-end mb-2">
+<div class="flex justify-end mb-2 gap-2">
+  <a href="/api/export/kiro" class="btn btn-xs btn-outline btn-info">📥 导出 JSON</a>
   <button type="button" class="btn btn-xs btn-outline btn-secondary" onclick="refreshAllKiro(event)">🔄 批量刷新 Token</button>
 </div>
 <div class="overflow-x-auto bg-base-100 rounded-box shadow">
