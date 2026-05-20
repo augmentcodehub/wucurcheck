@@ -81,17 +81,16 @@ jobs:
         CALLBACK_SECRET: ${{ secrets.WORKER_CALLBACK_SECRET }}
       run: |
         $target = "${{ inputs.target }}"
+        New-Item -ItemType Directory -Force -Path artifacts | Out-Null
         
-        # Get accounts from Worker API
-        $headers = @{ "x-worker-token" = $env:CALLBACK_SECRET }
-        $accounts = Invoke-RestMethod -Uri "$env:WORKER_BASE/api/accounts" -Headers $headers
+        # Get Kiro accounts via trigger API (supports token auth)
+        $headers = @{ "x-worker-token" = $env:CALLBACK_SECRET; "Content-Type" = "application/json" }
+        $resp = Invoke-RestMethod -Uri "$env:WORKER_BASE/api/trigger" -Method POST -Headers $headers -Body '{"action":"list_kiro"}'
+        $accounts = $resp.accounts
         
-        # Filter Kiro accounts needing activation (have refresh_token, usage_limit <= 50)
+        # Filter accounts needing activation (usage_limit <= 50)
         $toActivate = $accounts | Where-Object {
-          $_.platform -eq "kiro" -and
-          $_.refresh_token -and
-          $_.status -ne "suspended" -and
-          ((-not $_.usage_limit) -or ($_.usage_limit -le 50))
+          $_.refresh_token -and ((-not $_.usage_limit) -or ($_.usage_limit -le 50))
         }
         
         if ($target) {
@@ -99,7 +98,6 @@ jobs:
         }
         
         echo "Found $(@($toActivate).Count) accounts to activate"
-        New-Item -ItemType Directory -Force -Path artifacts | Out-Null
         
         $results = @()
         foreach ($account in $toActivate) {

@@ -70,6 +70,12 @@ async function handleKiroRefreshAll(_target, _body, env, _request) {
   return Response.json({ success: true, ...result, count: result.total });
 }
 
+async function handleListKiro(_target, _body, env, _request) {
+  const accounts = await listAccounts(env);
+  const kiro = accounts.filter((a) => a.platform === "kiro" && a.status !== "suspended");
+  return Response.json({ success: true, accounts: kiro });
+}
+
 async function handleKiroRefresh(target, _body, env, _request) {
   if (!target) return Response.json({ success: false, error_code: "MISSING_TARGET" }, { status: 400 });
   const { refreshSingleAccount } = await import("../services/account_manager.js");
@@ -88,6 +94,7 @@ const LOCAL_ACTIONS = {
   checkin_unchecked: handleCheckinUnchecked,
   kiro_refresh_all: handleKiroRefreshAll,
   kiro_refresh: handleKiroRefresh,
+  list_kiro: handleListKiro,
 };
 
 // ============ Entry Point ============
