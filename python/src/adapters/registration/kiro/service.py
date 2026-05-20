@@ -16,7 +16,7 @@ log = logging.getLogger(__name__)
 
 
 class KiroRegistrationService(RegistrationService):
-    """Kiro registration: browser flow → sso_token → device auth → tokens."""
+    """Kiro registration: browser flow → sso_token → device auth → tokens → trial activation."""
 
     def __init__(self, email_client: EmailClient) -> None:
         self._email_client = email_client
@@ -66,6 +66,9 @@ class KiroRegistrationService(RegistrationService):
             credentials.client_secret = auth_result["clientSecret"]
             credentials.region = auth_result.get("region", "us-east-1")
             credentials.expires_in = auth_result.get("expiresIn")
+
+            # Phase 3: Trigger trial activation (best-effort, don't fail registration)
+            await self._try_activate_trial(credentials.access_token, email)
         else:
             error = f"Device auth failed: {auth_result.get('error')} (sso_token still valid)"
 
@@ -79,3 +82,15 @@ class KiroRegistrationService(RegistrationService):
             credentials=credentials,
             error=error,
         )
+
+    async def _try_activate_trial(self, access_token: str, email: str) -> None:
+        """Best-effort trial activation — never fails the registration."""
+        try:
+            from adapters.kiro.trial_activation import activate_trial
+            result = await activate_trial(access_token)
+            if result["success"]:
+                log.info("Trial activation sent for %s", email)
+            else:
+                log.warning("Trial activation failed for %s: %s", email, result.get("error"))
+        except Exception as exc:
+            log.warning("Trial activation error for %s: %s", email, exc)
