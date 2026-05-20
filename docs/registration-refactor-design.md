@@ -236,9 +236,11 @@ def generate_password(length: int = 16) -> str:
 
 ### 4. 代理策略说明
 
-- **本地批量注册**：使用 `proxy_pool.py` 提供的 SOCKS5 端口轮换
-- **GitHub Actions**：每次 workflow 运行 IP 不同（Runner 自带），单次运行内注册数量控制在 3 个以内避免限流
+- **本地批量注册**：使用 `proxy_pool.py` 提供的 SOCKS5 端口轮换，每个 IP 只注册 1 个
+- **GitHub Actions**：每次 workflow 运行 IP 不同（Runner 自带），单次运行只注册 1 个
 - **未来扩展**：如需 Actions 内代理轮换，接入外部代理服务（如 Bright Data）或使用 self-hosted runner + 本地代理池
+
+**重要约束：Kiro 单个 IP 每次只注册 1 个账号，多个必须换 IP。**
 
 ### 5. 重发验证码逻辑
 
