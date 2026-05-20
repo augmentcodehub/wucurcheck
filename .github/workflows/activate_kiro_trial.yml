@@ -6,10 +6,6 @@ on:
         description: '目标账号邮箱（留空=全部未激活的）'
         required: false
         default: ''
-      callback_url:
-        description: '回调地址'
-        required: false
-        default: ''
 
 jobs:
   activate:
@@ -34,21 +30,19 @@ jobs:
     - name: 安装依赖
       run: uv sync
 
-    - name: 安装 kiro-cli
+    - name: 下载安装 Kiro IDE
       shell: pwsh
       run: |
-        # Download Kiro IDE installer
         $url = "https://desktop-release.codewhisperer.us-east-1.amazonaws.com/latest/windows/KiroSetup.exe"
         echo "[INFO] Downloading Kiro IDE..."
         Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\KiroSetup.exe" -UseBasicParsing
         echo "[INFO] Installing Kiro IDE (silent)..."
         Start-Process -FilePath "$env:TEMP\KiroSetup.exe" -ArgumentList "/S" -Wait -NoNewWindow
         Start-Sleep -Seconds 5
-        # Find where it installed
         $kiroPath = "$env:LOCALAPPDATA\Programs\Kiro\Kiro.exe"
         if (-not (Test-Path $kiroPath)) {
-          $kiroPath = Get-ChildItem -Path "$env:LOCALAPPDATA","$env:PROGRAMFILES","${env:PROGRAMFILES(X86)}" -Recurse -Filter "Kiro.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if ($kiroPath) { $kiroPath = $kiroPath.FullName }
+          $found = Get-ChildItem -Path $env:LOCALAPPDATA,$env:PROGRAMFILES -Recurse -Filter "Kiro.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($found) { $kiroPath = $found.FullName }
         }
         echo "KIRO_PATH=$kiroPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
         echo "[OK] Kiro IDE at: $kiroPath"
@@ -62,122 +56,65 @@ jobs:
       run: |
         $target = "${{ inputs.target }}"
         New-Item -ItemType Directory -Force -Path artifacts | Out-Null
-        
-        # Get Kiro accounts via trigger API (supports token auth)
+
         $headers = @{ "x-worker-token" = $env:CALLBACK_SECRET; "Content-Type" = "application/json" }
         $resp = Invoke-RestMethod -Uri "$env:WORKER_BASE/api/trigger" -Method POST -Headers $headers -Body '{"action":"list_kiro"}'
         $accounts = $resp.accounts
-        
-        # Filter accounts needing activation (usage_limit <= 50)
-        $toActivate = $accounts | Where-Object {
+
+        $toActivate = @($accounts | Where-Object {
           $_.refresh_token -and ((-not $_.usage_limit) -or ($_.usage_limit -le 50))
-        }
-        
-        if ($target) {
-          $toActivate = $toActivate | Where-Object { $_.username -eq $target }
-        }
-        
-        echo "Found $(@($toActivate).Count) accounts to activate"
-        
+        })
+        if ($target) { $toActivate = @($toActivate | Where-Object { $_.username -eq $target }) }
+
+        echo "Found $($toActivate.Count) accounts to activate"
+
         $results = @()
         foreach ($account in $toActivate) {
           echo "--- Activating: $($account.username) ---"
-          
-          # Write tokens to ~/.aws/sso/cache/ (Kiro IDE reads from here)
+
+          # Write tokens to ~/.aws/sso/cache/
           $ssoDir = "$env:USERPROFILE\.aws\sso\cache"
           New-Item -ItemType Directory -Force -Path $ssoDir | Out-Null
-          
-          # Compute clientIdHash (SHA1 of clientId)
+
           $sha1 = [System.Security.Cryptography.SHA1]::Create()
           $bytes = [System.Text.Encoding]::UTF8.GetBytes($account.client_id)
           $hash = ($sha1.ComputeHash($bytes) | ForEach-Object { $_.ToString("x2") }) -join ""
-          
-          # Write client credentials file
-          $clientFile = @{
-            clientId = $account.client_id
-            clientSecret = $account.client_secret
-            expiresAt = (Get-Date).AddDays(90).ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-          } | ConvertTo-Json
-          $clientFile | Out-File -FilePath "$ssoDir\$hash.json" -Encoding utf8
-          
-          # Write main token file
-          $tokenFile = @{
-            accessToken = $account.access_token
-            refreshToken = $account.refresh_token
-            expiresAt = (Get-Date).AddHours(1).ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
-            clientIdHash = $hash
-            authMethod = "BuilderId"
-            provider = "BuilderId"
-            region = ($account.region ?? "us-east-1")
-          } | ConvertTo-Json
-          $tokenFile | Out-File -FilePath "$ssoDir\kiro-auth-token.json" -Encoding utf8
-          
-          echo "[OK] Tokens written to $ssoDir"
-          
-          # Launch Kiro IDE briefly to trigger trial activation
-          $kiroPath = $env:KIRO_PATH
-          if ($kiroPath -and (Test-Path $kiroPath)) {
-            echo "[INFO] Launching Kiro IDE..."
-            $proc = Start-Process -FilePath $kiroPath -PassThru
+
+          @{ clientId=$account.client_id; clientSecret=$account.client_secret; expiresAt=(Get-Date).AddDays(90).ToString("yyyy-MM-ddTHH:mm:ss.fffZ") } | ConvertTo-Json | Out-File "$ssoDir\$hash.json" -Encoding utf8
+
+          @{ accessToken=$account.access_token; refreshToken=$account.refresh_token; expiresAt=(Get-Date).AddHours(1).ToString("yyyy-MM-ddTHH:mm:ss.fffZ"); clientIdHash=$hash; authMethod="BuilderId"; provider="BuilderId"; region=($account.region ?? "us-east-1") } | ConvertTo-Json | Out-File "$ssoDir\kiro-auth-token.json" -Encoding utf8
+
+          echo "[OK] Tokens written"
+
+          # Launch Kiro IDE
+          if ($env:KIRO_PATH -and (Test-Path $env:KIRO_PATH)) {
+            echo "[INFO] Launching Kiro IDE for 15s..."
+            $proc = Start-Process -FilePath $env:KIRO_PATH -PassThru
             Start-Sleep -Seconds 15
-            # Kill it
             Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
             echo "[OK] Kiro IDE closed"
           } else {
-            echo "[WARN] Kiro IDE not found, skipping launch"
+            echo "[WARN] Kiro IDE not found at: $env:KIRO_PATH"
           }
-          
+
           Start-Sleep -Seconds 5
-          
-          # Check if trial was activated
-          $checkScript = @"
-import sys, json, cbor2, httpx
-token = sys.argv[1]
-resp = httpx.post(
-    'https://app.kiro.dev/service/KiroWebPortalService/operation/GetUserUsageAndLimits',
-    headers={
-        'accept': 'application/cbor',
-        'content-type': 'application/cbor',
-        'smithy-protocol': 'rpc-v2-cbor',
-        'authorization': f'Bearer {token}',
-        'cookie': f'Idp=BuilderId; AccessToken={token}',
-    },
-    content=cbor2.dumps({'isEmailRequired': True, 'origin': 'KIRO_IDE'}),
-    timeout=30,
-)
-if resp.status_code == 200:
-    data = cbor2.loads(resp.content)
-    credit = next((b for b in data.get('usageBreakdownList', []) if b.get('resourceType') == 'CREDIT'), {})
-    ft = credit.get('freeTrialInfo')
-    limit = credit.get('usageLimit', 0)
-    bonuses = credit.get('bonuses', [])
-    total = limit + (ft.get('usageLimit', 0) if ft else 0) + sum(b.get('usageLimit', 0) for b in bonuses)
-    print(json.dumps({'base_limit': limit, 'free_trial': ft.get('usageLimit', 0) if ft else 0, 'total_limit': total, 'activated': total > limit}))
-else:
-    print(json.dumps({'error': f'HTTP {resp.status_code}', 'activated': False}))
-"@
-          
-          $usageJson = uv run python -c $checkScript $account.access_token 2>&1 | Select-Object -Last 1
-          echo "Usage check: $usageJson"
-          
+
+          # Check trial
+          $usageJson = uv run python python/src/scripts/check_kiro_trial.py $account.access_token 2>&1 | Select-Object -Last 1
+          echo "Usage: $usageJson"
+
           try {
             $usage = $usageJson | ConvertFrom-Json
-            $results += @{
-              username = $account.username
-              activated = $usage.activated
-              total_limit = $usage.total_limit
-              free_trial = $usage.free_trial
-            }
+            $results += @{ username=$account.username; activated=$usage.activated; total_limit=$usage.total_limit; free_trial=$usage.free_trial }
           } catch {
-            $results += @{ username = $account.username; activated = $false; error = "Parse failed" }
+            $results += @{ username=$account.username; activated=$false; error="parse_failed" }
           }
-          
+
           Start-Sleep -Seconds 5
         }
-        
-        $results | ConvertTo-Json -Depth 3 -AsArray | Out-File -FilePath artifacts/activate_results.json -Encoding utf8
-        
-        $activated = ($results | Where-Object { $_.activated }).Count
+
+        $results | ConvertTo-Json -Depth 3 -AsArray | Out-File artifacts/activate_results.json -Encoding utf8
+        $activated = @($results | Where-Object { $_.activated }).Count
         echo "Results: $activated/$($results.Count) activated"
 
     - name: 上传结果
@@ -191,23 +128,16 @@ else:
       if: always()
       shell: pwsh
       env:
-        CALLBACK_URL: ${{ inputs.callback_url || secrets.WORKER_CALLBACK_URL }}
+        CALLBACK_URL: ${{ secrets.WORKER_CALLBACK_URL }}
         CALLBACK_SECRET: ${{ secrets.WORKER_CALLBACK_SECRET }}
       run: |
         if (-not $env:CALLBACK_URL) { echo "跳过回调"; exit 0 }
         if (-not (Test-Path artifacts/activate_results.json)) { echo "无结果"; exit 0 }
         $results = Get-Content artifacts/activate_results.json | ConvertFrom-Json
-        # Mark activated accounts
         foreach ($r in $results) {
           if ($r.activated) {
-            $body = @{
-              secret = $env:CALLBACK_SECRET
-              action = "batch_result"
-              data = @{ results = @(@{ username = $r.username; trial_activated = $true; usage_limit = $r.total_limit }) }
-            } | ConvertTo-Json -Depth 4
-            try {
-              Invoke-RestMethod -Uri $env:CALLBACK_URL -Method POST -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -ContentType "application/json; charset=utf-8"
-            } catch { echo "回调失败: $_" }
+            $body = @{ secret=$env:CALLBACK_SECRET; action="batch_result"; data=@{ results=@(@{ username=$r.username; trial_activated=$true; usage_limit=$r.total_limit }) } } | ConvertTo-Json -Depth 4
+            try { Invoke-RestMethod -Uri $env:CALLBACK_URL -Method POST -Body ([System.Text.Encoding]::UTF8.GetBytes($body)) -ContentType "application/json; charset=utf-8" } catch { echo "回调失败: $_" }
           }
         }
-        echo "回调完成"
+        echo "Done"
