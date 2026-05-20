@@ -6,15 +6,9 @@
  */
 
 import { log } from "../lib/log.js";
+import { timingSafeEqual } from "../lib/crypto.js";
 import { putAccount } from "../lib/store.js";
 import { releaseLock } from "../lib/trigger_lock.js";
-
-function timingSafeEqual(a, b) {
-  if (!a || !b || a.length !== b.length) return false;
-  let r = 0;
-  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return r === 0;
-}
 
 // ============ Action Handlers ============
 
