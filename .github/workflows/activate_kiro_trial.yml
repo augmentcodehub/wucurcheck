@@ -37,41 +37,21 @@ jobs:
     - name: 安装 kiro-cli
       shell: pwsh
       run: |
-        # Official Windows installation via PowerShell
-        try {
-          irm https://cli.kiro.dev/install.ps1 | iex
-          echo "[OK] kiro-cli installed via official installer"
-        } catch {
-          echo "[INFO] Official installer failed, trying zip fallback..."
-          $url = "https://desktop-release.q.us-east-1.amazonaws.com/latest/kirocli-x86_64-windows.zip"
-          $dest = "$env:LOCALAPPDATA\Programs\kiro-cli"
-          New-Item -ItemType Directory -Force -Path $dest | Out-Null
-          Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\kirocli.zip" -UseBasicParsing
-          Expand-Archive -Path "$env:TEMP\kirocli.zip" -DestinationPath $dest -Force
-          echo "[OK] kiro-cli installed via zip fallback"
+        # Download Kiro IDE installer
+        $url = "https://desktop-release.codewhisperer.us-east-1.amazonaws.com/latest/windows/KiroSetup.exe"
+        echo "[INFO] Downloading Kiro IDE..."
+        Invoke-WebRequest -Uri $url -OutFile "$env:TEMP\KiroSetup.exe" -UseBasicParsing
+        echo "[INFO] Installing Kiro IDE (silent)..."
+        Start-Process -FilePath "$env:TEMP\KiroSetup.exe" -ArgumentList "/S" -Wait -NoNewWindow
+        Start-Sleep -Seconds 5
+        # Find where it installed
+        $kiroPath = "$env:LOCALAPPDATA\Programs\Kiro\Kiro.exe"
+        if (-not (Test-Path $kiroPath)) {
+          $kiroPath = Get-ChildItem -Path "$env:LOCALAPPDATA","$env:PROGRAMFILES","${env:PROGRAMFILES(X86)}" -Recurse -Filter "Kiro.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($kiroPath) { $kiroPath = $kiroPath.FullName }
         }
-        # Add all possible paths
-        $paths = @(
-          "$env:LOCALAPPDATA\Programs\kiro-cli",
-          "$env:LOCALAPPDATA\kiro-cli",
-          "$env:USERPROFILE\.local\bin",
-          "$env:APPDATA\kiro-cli\bin"
-        )
-        foreach ($p in $paths) {
-          if (Test-Path $p) {
-            echo $p | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-            echo "[PATH] Added: $p"
-          }
-        }
-        # Find kiro-cli wherever it landed
-        $found = Get-ChildItem -Path "$env:LOCALAPPDATA","$env:APPDATA","$env:USERPROFILE" -Recurse -Filter "kiro-cli.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($found) {
-          $dir = $found.DirectoryName
-          echo $dir | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-          echo "[FOUND] kiro-cli at: $($found.FullName)"
-        } else {
-          echo "[WARN] kiro-cli.exe not found, will try to proceed anyway"
-        }
+        echo "KIRO_PATH=$kiroPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        echo "[OK] Kiro IDE at: $kiroPath"
 
     - name: 激活 Trial
       id: activate
@@ -103,89 +83,79 @@ jobs:
         foreach ($account in $toActivate) {
           echo "--- Activating: $($account.username) ---"
           
-          # Write tokens to kiro-cli database
-          $dbDir = "$env:LOCALAPPDATA\kiro-cli"
-          New-Item -ItemType Directory -Force -Path $dbDir | Out-Null
-          $dbPath = "$dbDir\data.sqlite3"
+          # Write tokens to ~/.aws/sso/cache/ (Kiro IDE reads from here)
+          $ssoDir = "$env:USERPROFILE\.aws\sso\cache"
+          New-Item -ItemType Directory -Force -Path $ssoDir | Out-Null
           
-          # Create DB and write tokens using Python
-          $pyScript = @"
-        import sqlite3, sys
-        db = sys.argv[1]
-        conn = sqlite3.connect(db)
-        cur = conn.cursor()
-        cur.execute('CREATE TABLE IF NOT EXISTS auth_kv (key TEXT PRIMARY KEY, value TEXT)')
-        cur.execute('CREATE TABLE IF NOT EXISTS state (key TEXT PRIMARY KEY, value TEXT)')
-        cur.execute('DELETE FROM auth_kv')
-        # Try different key formats
-        tokens = {
-            'builder_id.access_token': sys.argv[2],
-            'builder_id.refresh_token': sys.argv[3],
-            'builder_id.client_id': sys.argv[4],
-            'builder_id.client_secret': sys.argv[5],
-            'builder_id.region': sys.argv[6],
-            'builder_id.start_url': 'https://view.awsapps.com/start',
-            'accessToken': sys.argv[2],
-            'refreshToken': sys.argv[3],
-            'clientId': sys.argv[4],
-            'clientSecret': sys.argv[5],
-        }
-        for k, v in tokens.items():
-            if v:
-                cur.execute('INSERT OR REPLACE INTO auth_kv (key, value) VALUES (?, ?)', (k, v))
-        conn.commit()
-        conn.close()
-        print('DB written')
-        "@
+          # Compute clientIdHash (SHA1 of clientId)
+          $sha1 = [System.Security.Cryptography.SHA1]::Create()
+          $bytes = [System.Text.Encoding]::UTF8.GetBytes($account.client_id)
+          $hash = ($sha1.ComputeHash($bytes) | ForEach-Object { $_.ToString("x2") }) -join ""
           
-          python -c $pyScript $dbPath $account.access_token $account.refresh_token $account.client_id $account.client_secret ($account.region ?? "us-east-1")
+          # Write client credentials file
+          $clientFile = @{
+            clientId = $account.client_id
+            clientSecret = $account.client_secret
+            expiresAt = (Get-Date).AddDays(90).ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+          } | ConvertTo-Json
+          $clientFile | Out-File -FilePath "$ssoDir\$hash.json" -Encoding utf8
           
-          # Try sending a message via kiro-cli
-          $chatResult = $null
-          try {
-            $env:KIRO_CLI_DATA_DIR = $dbDir
-            echo "hi" | timeout 20 kiro-cli chat 2>&1 | Out-String
-            $chatResult = "sent"
-          } catch {
-            $chatResult = "failed: $_"
+          # Write main token file
+          $tokenFile = @{
+            accessToken = $account.access_token
+            refreshToken = $account.refresh_token
+            expiresAt = (Get-Date).AddHours(1).ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+            clientIdHash = $hash
+            authMethod = "BuilderId"
+            provider = "BuilderId"
+            region = ($account.region ?? "us-east-1")
+          } | ConvertTo-Json
+          $tokenFile | Out-File -FilePath "$ssoDir\kiro-auth-token.json" -Encoding utf8
+          
+          echo "[OK] Tokens written to $ssoDir"
+          
+          # Launch Kiro IDE briefly to trigger trial activation
+          $kiroPath = $env:KIRO_PATH
+          if ($kiroPath -and (Test-Path $kiroPath)) {
+            echo "[INFO] Launching Kiro IDE..."
+            $proc = Start-Process -FilePath $kiroPath -PassThru
+            Start-Sleep -Seconds 15
+            # Kill it
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            echo "[OK] Kiro IDE closed"
+          } else {
+            echo "[WARN] Kiro IDE not found, skipping launch"
           }
           
-          echo "Chat result: $chatResult"
+          Start-Sleep -Seconds 5
           
-          # Check if trial was activated by querying usage API
+          # Check if trial was activated
           $checkScript = @"
-        import sys, json, cbor2, httpx
-        token = sys.argv[1]
-        resp = httpx.post(
-            'https://app.kiro.dev/service/KiroWebPortalService/operation/GetUserUsageAndLimits',
-            headers={
-                'accept': 'application/cbor',
-                'content-type': 'application/cbor',
-                'smithy-protocol': 'rpc-v2-cbor',
-                'authorization': f'Bearer {token}',
-                'cookie': f'Idp=BuilderId; AccessToken={token}',
-            },
-            content=cbor2.dumps({'isEmailRequired': True, 'origin': 'KIRO_IDE'}),
-            timeout=30,
-        )
-        if resp.status_code == 200:
-            data = cbor2.loads(resp.content)
-            credit = next((b for b in data.get('usageBreakdownList', []) if b.get('resourceType') == 'CREDIT'), {})
-            ft = credit.get('freeTrialInfo')
-            limit = credit.get('usageLimit', 0)
-            bonuses = credit.get('bonuses', [])
-            total = limit + (ft.get('usageLimit', 0) if ft else 0) + sum(b.get('usageLimit', 0) for b in bonuses)
-            print(json.dumps({
-                'base_limit': limit,
-                'free_trial': ft.get('usageLimit', 0) if ft else 0,
-                'free_trial_status': ft.get('freeTrialStatus') if ft else None,
-                'bonuses': len(bonuses),
-                'total_limit': total,
-                'activated': total > limit,
-            }))
-        else:
-            print(json.dumps({'error': f'HTTP {resp.status_code}', 'activated': False}))
-        "@
+import sys, json, cbor2, httpx
+token = sys.argv[1]
+resp = httpx.post(
+    'https://app.kiro.dev/service/KiroWebPortalService/operation/GetUserUsageAndLimits',
+    headers={
+        'accept': 'application/cbor',
+        'content-type': 'application/cbor',
+        'smithy-protocol': 'rpc-v2-cbor',
+        'authorization': f'Bearer {token}',
+        'cookie': f'Idp=BuilderId; AccessToken={token}',
+    },
+    content=cbor2.dumps({'isEmailRequired': True, 'origin': 'KIRO_IDE'}),
+    timeout=30,
+)
+if resp.status_code == 200:
+    data = cbor2.loads(resp.content)
+    credit = next((b for b in data.get('usageBreakdownList', []) if b.get('resourceType') == 'CREDIT'), {})
+    ft = credit.get('freeTrialInfo')
+    limit = credit.get('usageLimit', 0)
+    bonuses = credit.get('bonuses', [])
+    total = limit + (ft.get('usageLimit', 0) if ft else 0) + sum(b.get('usageLimit', 0) for b in bonuses)
+    print(json.dumps({'base_limit': limit, 'free_trial': ft.get('usageLimit', 0) if ft else 0, 'total_limit': total, 'activated': total > limit}))
+else:
+    print(json.dumps({'error': f'HTTP {resp.status_code}', 'activated': False}))
+"@
           
           $usageJson = uv run python -c $checkScript $account.access_token 2>&1 | Select-Object -Last 1
           echo "Usage check: $usageJson"
@@ -197,15 +167,9 @@ jobs:
               activated = $usage.activated
               total_limit = $usage.total_limit
               free_trial = $usage.free_trial
-              chat_result = $chatResult
             }
           } catch {
-            $results += @{
-              username = $account.username
-              activated = $false
-              error = "Parse failed: $usageJson"
-              chat_result = $chatResult
-            }
+            $results += @{ username = $account.username; activated = $false; error = "Parse failed" }
           }
           
           Start-Sleep -Seconds 5
