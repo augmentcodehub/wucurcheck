@@ -1,5 +1,7 @@
 """Kiro account manager CLI — check status, refresh tokens, batch operations.
 
+Composition root: all dependencies are wired here, not inside use cases.
+
 Usage:
     python -m cli.kiro_manager check --access-token xxx --refresh-token xxx
     python -m cli.kiro_manager batch --accounts-file accounts.json
@@ -18,17 +20,29 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.insert(0, str(ROOT_DIR))
 
-from core.application.batch_refresh_use_case import BatchAccount, BatchRefreshUseCase
-from core.application.check_account_status_use_case import (
-    AccountCredentials,
-    CheckAccountStatusUseCase,
-)
-
 log = logging.getLogger(__name__)
+
+
+def _build_status_use_case():
+    """Composition root: wire adapters into use case."""
+    from adapters.kiro.api_client import KiroApiClient
+    from adapters.token.oidc_token_service import OidcTokenService
+    from adapters.token.social_token_service import SocialTokenService
+    from core.application.check_account_status_use_case import CheckAccountStatusUseCase
+
+    return CheckAccountStatusUseCase(
+        api=KiroApiClient(),
+        token_refreshers={
+            "oidc": OidcTokenService(),
+            "social": SocialTokenService(),
+        },
+    )
 
 
 async def cmd_check(args) -> int:
     """Check a single account's status."""
+    from core.application.check_account_status_use_case import AccountCredentials
+
     creds = AccountCredentials(
         access_token=args.access_token,
         refresh_token=args.refresh_token or "",
@@ -39,7 +53,7 @@ async def cmd_check(args) -> int:
         idp=args.idp,
     )
 
-    use_case = CheckAccountStatusUseCase()
+    use_case = _build_status_use_case()
     result = await use_case.execute(creds)
 
     output = {
@@ -64,6 +78,9 @@ async def cmd_check(args) -> int:
 
 async def cmd_batch(args) -> int:
     """Batch refresh and check multiple accounts."""
+    from core.application.batch_refresh_use_case import BatchAccount, BatchRefreshUseCase
+    from core.application.check_account_status_use_case import AccountCredentials
+
     data = json.loads(Path(args.accounts_file).read_text())
     accounts_raw = data if isinstance(data, list) else data.get("accounts", [])
 
@@ -84,12 +101,16 @@ async def cmd_batch(args) -> int:
             ),
         ))
 
-    def on_progress(done, total):
+    def on_progress(done: int, total: int) -> None:
         print(f"\r[{done}/{total}]", end="", flush=True)
 
-    use_case = BatchRefreshUseCase(concurrency=args.concurrency)
-    summary = await use_case.execute(accounts, on_progress=on_progress)
-    print()  # newline after progress
+    status_use_case = _build_status_use_case()
+    batch_use_case = BatchRefreshUseCase(
+        status_use_case=status_use_case,
+        concurrency=args.concurrency,
+    )
+    summary = await batch_use_case.execute(accounts, on_progress=on_progress)
+    print()
 
     output = {
         "total": summary.total,
@@ -100,12 +121,16 @@ async def cmd_batch(args) -> int:
     }
 
     for r in summary.results:
-        entry = {"id": r.id, "email": r.email}
+        entry: dict = {"id": r.id, "email": r.email}
         if r.error:
             entry["status"] = "error"
             entry["error"] = r.error
         elif r.result:
-            entry["status"] = "active" if r.result.status.active else "suspended" if r.result.status.suspended else "error"
+            entry["status"] = (
+                "active" if r.result.status.active
+                else "suspended" if r.result.status.suspended
+                else "error"
+            )
             entry["usage"] = f"{r.result.status.usage.current}/{r.result.status.usage.limit}"
             entry["subscription"] = r.result.status.subscription_type
             if r.result.token_refreshed:
