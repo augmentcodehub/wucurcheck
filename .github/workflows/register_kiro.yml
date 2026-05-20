@@ -7,8 +7,13 @@ on:
         required: false
         default: '1'
         type: string
+      email_provider:
+        description: '邮箱服务 (ouraihub / mailtm)'
+        required: false
+        default: 'ouraihub'
+        type: string
       email_domain:
-        description: '邮箱域名'
+        description: '邮箱域名（ouraihub 用，mailtm 自动获取）'
         required: false
         default: 'ouraihub.com'
         type: string
@@ -76,7 +81,7 @@ jobs:
 
           $args = @(
             "python/src/cli/register_kiro.py",
-            "--email-provider", "ouraihub",
+            "--email-provider", "${{ inputs.email_provider }}",
             "--email-api-key", $env:EMAIL_API_KEY,
             "--email-domain", "${{ inputs.email_domain }}",
             "--code-timeout", "180",
