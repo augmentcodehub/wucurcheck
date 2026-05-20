@@ -939,10 +939,12 @@ def generate_password(length: int = 16) -> str:
 
 | 场景 | 代理方式 | 说明 |
 |------|---------|------|
-| 本地批量注册 | `proxy_pool.py` SOCKS5 轮换 | 43+ 节点，每个 IP 只注册 1 个 |
-| GitHub Actions（当前） | Runner 自带 IP | 每次运行 IP 不同，单次只注册 1 个 |
+| 本地批量注册 | `proxy_pool.py` SOCKS5 轮换 | 43+ 节点，Kiro 每 IP 1 个，Wucur 每 IP 3 个 |
+| GitHub Actions（当前） | Runner 自带 IP | 每次运行 IP 不同，Kiro 只注册 1 个，Wucur 可 3 个 |
 | GitHub Actions（未来） | 外部代理服务 / self-hosted runner | 需要时接入 |
 
-**重要约束：Kiro (AWS Builder ID) 单个 IP 每次只注册 1 个账号。** 多个账号必须换 IP，否则触发风控。
+**单 IP 注册上限（实测）：**
+- **Kiro (AWS Builder ID)**：1 个/IP（超过触发风控）
+- **Wucur**：3 个/IP（间隔 10 秒）
 
 `RegistrationConfig.proxy_url` 由调用方传入，Use Case 不关心代理来源。批量注册时由外层循环从 `proxy_pool.get_proxies()` 轮换选取。
