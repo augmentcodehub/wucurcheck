@@ -47,3 +47,21 @@ export async function apiExportCsv(request, env) {
     },
   });
 }
+
+export async function apiExportKiro(request, env) {
+  const accounts = await listAccounts(env);
+  const kiro = accounts
+    .filter(a => a.platform === "kiro" && a.status !== "suspended" && a.refresh_token)
+    .map(a => ({
+      refreshToken: a.refresh_token,
+      clientId: a.client_id,
+      clientSecret: a.client_secret,
+      provider: "BuilderId",
+    }));
+  return new Response(JSON.stringify(kiro, null, 2), {
+    headers: {
+      "Content-Type": "application/json; charset=utf-8",
+      "Content-Disposition": `attachment; filename="kiro-accounts-import.json"`,
+    },
+  });
+}
