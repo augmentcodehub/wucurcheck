@@ -86,19 +86,20 @@ jobs:
         $headers = @{ "x-worker-token" = $env:CALLBACK_SECRET }
         $accounts = Invoke-RestMethod -Uri "$env:WORKER_BASE/api/accounts" -Headers $headers
         
-        # Filter Kiro accounts needing activation (no freeTrialInfo, have refresh_token)
+        # Filter Kiro accounts needing activation (have refresh_token, usage_limit <= 50)
         $toActivate = $accounts | Where-Object {
           $_.platform -eq "kiro" -and
           $_.refresh_token -and
           $_.status -ne "suspended" -and
-          (-not $_.trial_activated)
+          ((-not $_.usage_limit) -or ($_.usage_limit -le 50))
         }
         
         if ($target) {
           $toActivate = $toActivate | Where-Object { $_.username -eq $target }
         }
         
-        echo "Found $($toActivate.Count) accounts to activate"
+        echo "Found $(@($toActivate).Count) accounts to activate"
+        New-Item -ItemType Directory -Force -Path artifacts | Out-Null
         
         $results = @()
         foreach ($account in $toActivate) {
@@ -212,8 +213,6 @@ jobs:
           Start-Sleep -Seconds 5
         }
         
-        $results | ConvertTo-Json -Depth 3 -AsArray | Out-File -FilePath artifacts/activate_results.json -Encoding utf8
-        New-Item -ItemType Directory -Force -Path artifacts | Out-Null
         $results | ConvertTo-Json -Depth 3 -AsArray | Out-File -FilePath artifacts/activate_results.json -Encoding utf8
         
         $activated = ($results | Where-Object { $_.activated }).Count
