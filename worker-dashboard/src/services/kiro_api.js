@@ -5,6 +5,22 @@
  */
 
 import { encode, decode } from "cborg";
+
+/**
+ * Custom tag decoder — cborg tag decoders receive a decode() function.
+ */
+const TAGS = {
+  1: (decode) => {
+    const val = decode(); // get the tagged content (epoch timestamp)
+    if (typeof val !== "number") return val;
+    const ts = val > 1e12 ? val : val * 1000;
+    return new Date(ts).toISOString();
+  },
+};
+
+function decodeCbor(buf) {
+  return decode(buf, { tags: TAGS, allowIndefinite: true });
+}
 import { log } from "../lib/log.js";
 
 const API_BASE = "https://app.kiro.dev/service/KiroWebPortalService/operation";
@@ -36,14 +52,14 @@ async function request(operation, body, accessToken, idp = "BuilderId") {
   if (!resp.ok) {
     let errorMsg = `HTTP ${resp.status}`;
     try {
-      const errData = decode(new Uint8Array(await resp.arrayBuffer()));
+      const errData = decodeCbor(new Uint8Array(await resp.arrayBuffer()));
       const errType = (errData.__type || "").split("#").pop() || "";
       errorMsg = errData.message ? `${errType}: ${errData.message}` : errorMsg;
     } catch { /* ignore parse errors */ }
     throw new KiroApiError(resp.status, errorMsg);
   }
 
-  return decode(new Uint8Array(await resp.arrayBuffer()));
+  return decodeCbor(new Uint8Array(await resp.arrayBuffer()));
 }
 
 /**
@@ -60,6 +76,7 @@ export async function fetchAccountStatus(accessToken, idp = "BuilderId") {
       accessToken,
       idp
     );
+    log.info("kiro_api_usage_raw", { keys: Object.keys(data), has_breakdown: !!data.usageBreakdownList });
     return parseUsageResponse(data);
   } catch (e) {
     if (e instanceof KiroApiError && e.status === 423) {
@@ -100,7 +117,14 @@ function parseUsageResponse(data) {
 
   let daysRemaining = null;
   if (data.nextDateReset) {
-    daysRemaining = Math.max(0, Math.ceil((new Date(data.nextDateReset).getTime() - Date.now()) / 86400000));
+    try {
+      const resetTs = typeof data.nextDateReset === "number"
+        ? data.nextDateReset > 1e12 ? data.nextDateReset : data.nextDateReset * 1000
+        : new Date(data.nextDateReset).getTime();
+      if (!isNaN(resetTs)) {
+        daysRemaining = Math.max(0, Math.ceil((resetTs - Date.now()) / 86400000));
+      }
+    } catch { /* ignore */ }
   }
 
   return {
