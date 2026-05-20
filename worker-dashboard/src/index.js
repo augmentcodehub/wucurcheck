@@ -61,8 +61,10 @@ export default {
     if (!hours.includes(currentHour)) return;
     log.info("cron_triggered", { hour: currentHour });
 
+    const callbackUrl = `${env.WORKER_URL}/callback`;
+
     // 1. 触发 checkin.yml（从 ANYROUTER_ACCOUNTS secret 读账号）
-    const r1 = await triggerWorkflow(env, { action: "checkin", target: "", callbackUrl: "https://worker-dashboard.ouraihub.workers.dev/callback" });
+    const r1 = await triggerWorkflow(env, { action: "checkin", target: "", callbackUrl });
     log.info("cron_checkin_yml", { ok: r1.ok });
 
     // 2. 触发 checkin_batch.yml（从 KV 读未签到账号）
@@ -76,7 +78,7 @@ export default {
       const r2 = await triggerWorkflow(env, {
         action: "checkin_unchecked",
         target: "",
-        callbackUrl: "https://worker-dashboard.ouraihub.workers.dev/callback",
+        callbackUrl,
         inputs: { accounts_json: JSON.stringify(unchecked) },
       });
       log.info("cron_checkin_batch", { ok: r2.ok, count: unchecked.length });
