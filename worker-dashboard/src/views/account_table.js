@@ -74,6 +74,7 @@ function renderKiroRows(accounts) {
       (a) => `<tr>
     <td><input type="checkbox" class="checkbox checkbox-xs row-check" value="${esc(a.username)}"/></td>
     <td class="font-mono text-xs">${esc(a.username)}</td>
+    <td class="font-mono text-xs"><span class="cursor-pointer" onclick="if(this.textContent==='••••••'){this.textContent=this.dataset.p}else{this.textContent='••••••'}" data-p="${esc(a.password)}">••••••</span></td>
     <td>${kiroUsageBadge(a)}</td>
     <td>${kiroSubBadge(a)}</td>
     <td class="text-xs">${a.days_remaining != null ? a.days_remaining + "d" : "-"}</td>
@@ -115,9 +116,9 @@ function renderKiroTable(accounts) {
 <table class="table table-sm">
   <thead><tr>
     <th><input type="checkbox" class="checkbox checkbox-xs" onchange="toggleAll(this)"/></th>
-    <th>邮箱</th><th>用量</th><th>订阅</th><th>剩余</th><th>刷新时间</th><th>状态</th><th>操作</th>
+    <th>邮箱</th><th>密码</th><th>用量</th><th>订阅</th><th>剩余</th><th>刷新时间</th><th>状态</th><th>操作</th>
   </tr></thead>
-  <tbody id="tbody-kiro">${rows || '<tr><td colspan="8" class="text-center py-8 text-base-content/50">暂无 Kiro 账号</td></tr>'}</tbody>
+  <tbody id="tbody-kiro">${rows || '<tr><td colspan="9" class="text-center py-8 text-base-content/50">暂无 Kiro 账号</td></tr>'}</tbody>
 </table>
 </div>
 <div class="flex justify-center mt-4 gap-1" id="tbody-kiro-pagination"></div>`;
