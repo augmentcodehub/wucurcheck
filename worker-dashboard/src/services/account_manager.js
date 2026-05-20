@@ -50,11 +50,14 @@ export async function refreshSingleAccount(env, account) {
   if (status.suspended) {
     update.status = "suspended";
     update.last_refresh_error = status.error;
-  } else if (!status.error) {
+  } else if (status.error) {
+    update.usage_fetch_error = status.error;
+  } else {
     update.usage_current = status.usage_current;
     update.usage_limit = status.usage_limit;
     update.subscription_type = status.subscription_type;
     update.days_remaining = status.days_remaining;
+    update.usage_fetch_error = null;
   }
 
   await putAccount(env, account.username, update);
