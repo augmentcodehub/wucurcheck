@@ -100,20 +100,21 @@ jobs:
           New-Item -ItemType Directory -Force -Path $ssoDir | Out-Null
 
           $sha1 = [System.Security.Cryptography.SHA1]::Create()
-          $bytes = [System.Text.Encoding]::UTF8.GetBytes($account.client_id)
+          $inputStr = '{"startUrl":"https://view.awsapps.com/start"}'
+          $bytes = [System.Text.Encoding]::UTF8.GetBytes($inputStr)
           $hash = ($sha1.ComputeHash($bytes) | ForEach-Object { $_.ToString("x2") }) -join ""
 
           @{ clientId=$account.client_id; clientSecret=$account.client_secret; expiresAt=(Get-Date).AddDays(90).ToString("yyyy-MM-ddTHH:mm:ss.fffZ") } | ConvertTo-Json | Out-File "$ssoDir\$hash.json" -Encoding utf8
 
-          @{ accessToken=$account.access_token; refreshToken=$account.refresh_token; expiresAt=(Get-Date).AddHours(1).ToString("yyyy-MM-ddTHH:mm:ss.fffZ"); clientIdHash=$hash; authMethod="BuilderId"; provider="BuilderId"; region=($account.region ?? "us-east-1") } | ConvertTo-Json | Out-File "$ssoDir\kiro-auth-token.json" -Encoding utf8
+          @{ accessToken=$account.access_token; refreshToken=$account.refresh_token; expiresAt=(Get-Date).AddHours(1).ToString("yyyy-MM-ddTHH:mm:ss.fffZ"); clientIdHash=$hash; authMethod="IdC"; provider="BuilderId"; region=($account.region ?? "us-east-1") } | ConvertTo-Json | Out-File "$ssoDir\kiro-auth-token.json" -Encoding utf8
 
           echo "[OK] Tokens written"
 
           # Launch Kiro IDE
           if ($env:KIRO_PATH -and (Test-Path $env:KIRO_PATH)) {
-            echo "[INFO] Launching Kiro IDE for 15s..."
+            echo "[INFO] Launching Kiro IDE for 30s..."
             $proc = Start-Process -FilePath $env:KIRO_PATH -PassThru
-            Start-Sleep -Seconds 15
+            Start-Sleep -Seconds 30
             Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
             echo "[OK] Kiro IDE closed"
           } else {
