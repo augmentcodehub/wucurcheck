@@ -47,6 +47,17 @@ def build_email_client(args) -> tuple[object | None, str | None]:
             print(f'[INFO] Created temp email: {email}')
         return client, email
 
+    if args.email_provider == 'mailtm':
+        from adapters.email.mailtm import MailTmClient
+        client = MailTmClient()
+        prefix = args.email.split('@')[0] if args.email and '@' in args.email else _random_prefix()
+        addr = client.create_email(prefix)
+        if not addr:
+            print('[ERROR] Failed to create mail.tm email', file=sys.stderr)
+            return None, None
+        print(f'[INFO] Created mail.tm email: {addr}')
+        return client, addr
+
     if args.email_api_url:
         cfg = GenericApiConfig(
             api_url=args.email_api_url,
@@ -125,7 +136,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--refresh-token', help='Outlook OAuth2 refresh token')
     parser.add_argument('--client-id', help='Outlook Graph API client ID')
     # OurAIHub temp email options
-    parser.add_argument('--email-provider', choices=['outlook', 'ouraihub', 'generic'], default='outlook', help='Email provider type')
+    parser.add_argument('--email-provider', choices=['outlook', 'ouraihub', 'generic', 'mailtm'], default='outlook', help='Email provider type')
     parser.add_argument('--email-api-key', help='Email API key')
     parser.add_argument('--email-domain', default='ouraihub.com', help='Temp email domain (ouraihub)')
     parser.add_argument('--email-id', help='Existing email ID (ouraihub)')
