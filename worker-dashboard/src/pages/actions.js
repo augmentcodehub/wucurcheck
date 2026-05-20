@@ -2,7 +2,7 @@ import { log } from "../lib/log.js";
 import { triggerWorkflow } from "../lib/github.js";
 import { acquireLock } from "../lib/trigger_lock.js";
 import { hasValidSession } from "../auth.js";
-import { listAccounts, deleteAccount } from "../lib/store.js";
+import { listAccounts, deleteAccount, getAccount } from "../lib/store.js";
 
 function timingSafeEqual(a, b) {
   if (!a || !b || a.length !== b.length) return false;
@@ -55,6 +55,22 @@ export async function apiTrigger(request, env) {
     for (const a of failed) await deleteAccount(env, a.username);
     log.info("failed_accounts_deleted", { count: failed.length });
     return Response.json({ success: true, action, count: failed.length });
+  }
+
+  // Kiro 批量刷新 Token（直接在 Worker 端执行，不走 GitHub）
+  if (action === "kiro_refresh_all") {
+    const { refreshAllKiroAccounts } = await import("../services/account_manager.js");
+    const result = await refreshAllKiroAccounts(env);
+    return Response.json({ success: true, ...result, count: result.total });
+  }
+
+  // Kiro 单账号刷新
+  if (action === "kiro_refresh" && target) {
+    const { refreshSingleAccount } = await import("../services/account_manager.js");
+    const account = await getAccount(env, target);
+    if (!account) return Response.json({ success: false, error_code: "NOT_FOUND" }, { status: 404 });
+    const result = await refreshSingleAccount(env, account);
+    return Response.json({ success: result.success, error: result.error });
   }
 
   // 批量签到未签到的：从 KV 读取未签到账号传给 workflow

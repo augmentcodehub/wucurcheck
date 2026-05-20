@@ -169,6 +169,24 @@ function copyDetail() {
   if (!a || !a.sso_token) { showToast("❌ 无 SSO Token",false); return; }
   navigator.clipboard.writeText(a.sso_token).then(()=>showToast("✅ 已复制 SSO Token",true)).catch(()=>showToast("❌ 复制失败",false));
 }
+async function refreshKiro(event, username) {
+  const btn = event.currentTarget;
+  btn.classList.add("loading","loading-spinner");
+  try {
+    const r = await fetch("/api/trigger",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"kiro_refresh",target:username})});
+    const d = await r.json();
+    showToast(d.success?"✅ 已触发刷新 "+username:"❌ "+(d.error||d.error_code||"FAILED"),d.success);
+  } finally { btn.classList.remove("loading","loading-spinner"); }
+}
+async function refreshAllKiro(event) {
+  const btn = event.currentTarget;
+  btn.classList.add("loading","loading-spinner");
+  try {
+    const r = await fetch("/api/trigger",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"kiro_refresh_all"})});
+    const d = await r.json();
+    showToast(d.success?"✅ 已触发批量刷新 ("+d.count+" 个)":"❌ "+(d.error||d.error_code||"FAILED"),d.success);
+  } finally { btn.classList.remove("loading","loading-spinner"); }
+}
 function showToast(msg, ok) {
   const t = document.getElementById("toast");
   const m = document.getElementById("toast-msg");
