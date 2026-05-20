@@ -83,8 +83,9 @@ jobs:
         $target = "${{ inputs.target }}"
         
         # Get accounts from Worker API
+        $baseUrl = $env:WORKER_URL -replace '/callback$', ''
         $headers = @{ "x-worker-token" = $env:CALLBACK_SECRET }
-        $accounts = Invoke-RestMethod -Uri "$env:WORKER_URL/../api/accounts" -Headers $headers
+        $accounts = Invoke-RestMethod -Uri "$baseUrl/api/accounts" -Headers $headers
         
         # Filter Kiro accounts needing activation (no freeTrialInfo, have refresh_token)
         $toActivate = $accounts | Where-Object {
