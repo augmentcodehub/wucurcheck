@@ -140,7 +140,7 @@ def persist_success(account: dict[str, str], payload: dict, db_path: Path) -> No
 	finally:
 		conn.close()
 
-	log.info('SQLite record saved to {db_path}')
+	LOGGER.info('SQLite record saved to %s', db_path)
 
 
 def main(argv: list[str] | None = None) -> int:
