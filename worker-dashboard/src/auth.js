@@ -1,14 +1,8 @@
 import { log } from "./lib/log.js";
+import { timingSafeEqual } from "./lib/crypto.js";
 
 const SESSION_COOKIE = "session";
 const SESSION_TTL = 86400 * 7;
-
-function timingSafeEqual(a, b) {
-  if (!a || !b || a.length !== b.length) return false;
-  let r = 0;
-  for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return r === 0;
-}
 
 export async function authMiddleware(request, env) {
   const valid = await hasValidSession(request, env);
@@ -52,13 +46,13 @@ export async function handleLogin(env, request) {
   }
 
   if (!valid) {
-    log.warn("login failed", { user });
+    log.warn("login_failed", { user });
     return html(LOGIN_HTML.replace("<!--ERR-->", '<div class="alert alert-error mt-4">用户名或密码错误</div>'), 401);
   }
 
   const token = crypto.randomUUID();
   await env.KV.put(`session:${token}`, user, { expirationTtl: SESSION_TTL });
-  log.info("login success", { user });
+  log.info("login_success", { user });
 
   const isLocal = new URL(request.url).hostname === "localhost";
   const cookieFlags = isLocal
