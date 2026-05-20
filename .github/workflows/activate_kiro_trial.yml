@@ -77,15 +77,14 @@ jobs:
       id: activate
       shell: pwsh
       env:
-        WORKER_URL: ${{ secrets.WORKER_CALLBACK_URL }}
+        WORKER_BASE: "https://worker-dashboard.ouraihub.workers.dev"
         CALLBACK_SECRET: ${{ secrets.WORKER_CALLBACK_SECRET }}
       run: |
         $target = "${{ inputs.target }}"
         
         # Get accounts from Worker API
-        $baseUrl = $env:WORKER_URL -replace '/callback$', ''
         $headers = @{ "x-worker-token" = $env:CALLBACK_SECRET }
-        $accounts = Invoke-RestMethod -Uri "$baseUrl/api/accounts" -Headers $headers
+        $accounts = Invoke-RestMethod -Uri "$env:WORKER_BASE/api/accounts" -Headers $headers
         
         # Filter Kiro accounts needing activation (no freeTrialInfo, have refresh_token)
         $toActivate = $accounts | Where-Object {
