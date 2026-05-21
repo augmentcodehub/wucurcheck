@@ -2,6 +2,6 @@
 
 import settingsTemplate from "../templates/partials/settings.mustache";
 
-export function renderSettingsPanel() {
+export function renderSettingsPanel(): string {
   return settingsTemplate;
 }
