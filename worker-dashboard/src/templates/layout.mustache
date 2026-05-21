@@ -53,6 +53,15 @@ function showToast(msg, ok) {
   m.textContent = msg; m.className = "alert " + (ok ? "alert-success" : "alert-error");
   t.classList.remove("hidden"); setTimeout(() => t.classList.add("hidden"), 3000);
 }
+function togglePwd(btn) {
+  const span = btn.parentElement.querySelector(".pwd-mask");
+  if (span.textContent === "••••••") { span.textContent = span.dataset.p; btn.textContent = "🙈"; }
+  else { span.textContent = "••••••"; btn.textContent = "👁"; }
+}
+function copyPwd(btn) {
+  const span = btn.parentElement.querySelector(".pwd-mask");
+  navigator.clipboard.writeText(span.dataset.p).then(() => showToast("✅ 已复制", true)).catch(() => showToast("❌ 复制失败", false));
+}
 document.body.addEventListener("htmx:afterRequest", function(e) {
   const xhr = e.detail.xhr;
   if (!xhr || !xhr.responseText) return;
