@@ -28,7 +28,7 @@ interface KiroViewModel {
 function prepareWucurAccount(a: Account): WucurViewModel {
   return {
     username: esc(a.username),
-    password: esc(a.password),
+    password: a.password,
     displayBalance: a.balance ?? "-",
     displayTime: a.checkin_time ? timeAgo(a.checkin_time) : "-",
     statusBadge: badge(a.status),
@@ -51,7 +51,7 @@ function prepareKiroAccount(a: Account): KiroViewModel {
 
   return {
     username: esc(a.username),
-    password: esc(a.password),
+    password: a.password,
     usageBadge,
     subBadge,
     displayDays: a.days_remaining != null ? a.days_remaining + "d" : "-",
