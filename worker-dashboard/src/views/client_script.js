@@ -162,7 +162,16 @@ function showDetail(username) {
   document.getElementById("detail-last-result").textContent = a.last_result || "-";
   const ssoRow = document.getElementById("detail-sso-row");
   if (a.sso_token) { ssoRow.classList.remove("hidden"); document.getElementById("detail-sso-token").textContent = a.sso_token; } else { ssoRow.classList.add("hidden"); }
+  const logsDiv = document.getElementById("detail-logs");
+  const logsList = document.getElementById("detail-logs-list");
+  logsDiv.classList.add("hidden"); logsList.innerHTML = "<span class='loading loading-dots loading-xs'></span>";
   document.getElementById("account-detail").showModal();
+  fetch("/api/logs?username="+encodeURIComponent(username)).then(r=>r.json()).then(d=>{
+    if(d.logs && d.logs.length){
+      logsDiv.classList.remove("hidden");
+      logsList.innerHTML = d.logs.map(l=>'<div class="flex justify-between bg-error/10 rounded px-2 py-1"><span>'+l.date+'</span><span class="text-error truncate ml-2">'+l.reason+'</span></div>').join("");
+    } else { logsDiv.classList.add("hidden"); }
+  }).catch(()=>{ logsDiv.classList.add("hidden"); });
 }
 function copyDetail() {
   const a = accounts.find(i => i.username === document.getElementById("detail-title").textContent.replace("账号详情 - ",""));

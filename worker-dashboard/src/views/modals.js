@@ -1,63 +1,17 @@
-/** Modal dialogs */
+/** Modal dialogs — Mustache template rendering */
 
-export function renderRegisterKiroModal() {
-  return `
-<dialog id="register-kiro-modal" class="modal">
-  <div class="modal-box">
-    <h3 class="text-lg font-bold mb-4">🚀 注册 Kiro 账号</h3>
-    <div class="space-y-3">
-      <div><label class="label text-sm">数量</label><input id="kiro-count" type="number" value="1" min="1" max="10" class="input input-bordered input-sm w-full"/></div>
-      <div><label class="label text-sm">邮箱域名</label><input id="kiro-domain" type="text" value="ouraihub.com" class="input input-bordered input-sm w-full"/></div>
-      <div><label class="label text-sm">代理（可选）</label><input id="kiro-proxy" type="text" placeholder="socks5://..." class="input input-bordered input-sm w-full"/></div>
-    </div>
-    <div class="modal-action">
-      <form method="dialog"><button class="btn btn-sm">取消</button></form>
-      <button id="kiro-submit" class="btn btn-info btn-sm" onclick="doRegisterKiro(event)">开始注册</button>
-    </div>
-  </div>
-</dialog>`;
-}
+import detailModalTemplate from "../templates/partials/detail-modal.mustache";
+import registerModalTemplate from "../templates/partials/register-modal.mustache";
+import registerKiroModalTemplate from "../templates/partials/register-kiro-modal.mustache";
 
 export function renderDetailModal() {
-  return `
-<dialog id="account-detail" class="modal">
-  <div class="modal-box">
-    <h3 class="text-lg font-bold mb-4" id="detail-title">账号详情</h3>
-    <div class="space-y-2 text-sm">
-      <div><span class="font-semibold">平台：</span><span id="detail-platform"></span></div>
-      <div><span class="font-semibold">状态：</span><span id="detail-status" class="badge badge-sm"></span></div>
-      <div><span class="font-semibold">余额：</span><span id="detail-balance"></span></div>
-      <div><span class="font-semibold">签到时间：</span><span id="detail-checkin-time"></span></div>
-      <div><span class="font-semibold">最近结果：</span><span id="detail-last-result"></span></div>
-      <div id="detail-sso-row" class="hidden"><span class="font-semibold">SSO Token：</span><span id="detail-sso-token" class="break-all text-xs font-mono"></span></div>
-    </div>
-    <div class="modal-action">
-      <button class="btn" onclick="copyDetail()">📋 复制</button>
-      <form method="dialog"><button class="btn">关闭</button></form>
-    </div>
-  </div>
-</dialog>`;
+  return detailModalTemplate;
 }
 
 export function renderRegisterModal() {
-  return `
-<dialog id="register-modal" class="modal">
-  <div class="modal-box">
-    <h3 class="text-lg font-bold mb-4">➕ 批量注册账号</h3>
-    <div class="space-y-3">
-      <div><label class="label text-sm">数量</label><input id="reg-count" type="number" value="3" min="1" max="50" class="input input-bordered input-sm w-full" oninput="updatePreview()"/></div>
-      <div><label class="label text-sm">用户名组合</label><select id="reg-prefix" class="select select-bordered select-sm w-full" onchange="updatePreview()"><option value="fruit+animal">水果+动物</option><option value="plant+animal">植物+动物</option><option value="fruit+metal">水果+金属</option><option value="plant+metal">植物+金属</option></select></div>
-      <div><label class="label text-sm">邮箱域名</label><select id="reg-domain" class="select select-bordered select-sm w-full" onchange="updatePreview()"><option value="qq.com">qq.com</option><option value="163.com">163.com</option><option value="gmail.com">gmail.com</option><option value="outlook.com">outlook.com</option><option value="mailto.plus">mailto.plus</option></select></div>
-      <div><label class="label text-sm">密码</label><input id="reg-password" type="text" value="123Claude&Codex" class="input input-bordered input-sm w-full" oninput="updatePreview()"/></div>
-    </div>
-    <div class="mt-3 p-2 bg-base-200 rounded text-xs font-mono">
-      <div>样例：<span id="reg-preview"></span></div>
-      <div id="reg-length" class="mt-1"></div>
-    </div>
-    <div class="modal-action">
-      <form method="dialog"><button class="btn btn-sm">取消</button></form>
-      <button id="reg-submit" class="btn btn-success btn-sm" onclick="doRegister(event)">开始注册</button>
-    </div>
-  </div>
-</dialog>`;
+  return registerModalTemplate;
+}
+
+export function renderRegisterKiroModal() {
+  return registerKiroModalTemplate;
 }
