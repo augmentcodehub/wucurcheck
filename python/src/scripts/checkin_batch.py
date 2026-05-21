@@ -16,6 +16,8 @@ log = get_logger("scripts.checkin_batch")
 
 ACCOUNTS_FILE = Path("artifacts/checkin_accounts.json")
 RESULTS_FILE = Path("artifacts/checkin_results.json")
+MAX_RETRIES = 2
+RETRY_WAIT = 30
 
 
 def run():
@@ -40,54 +42,66 @@ def run():
 
         result = {"username": username, "status": "failed", "last_result": "签到失败"}
 
-        with httpx.Client(http2=True, timeout=30.0) as client:
-            try:
-                login_resp = login_account(client, username, password)
-                if not login_resp.get("success"):
-                    result["last_result"] = f"登录失败: {login_resp.get('message', '')}"
-                    log.warning("Login failed", extra={"username": username, "reason": login_resp.get("message")})
-                    results.append(result)
-                    continue
+        for attempt in range(1, MAX_RETRIES + 2):
+            with httpx.Client(http2=True, timeout=30.0) as client:
+                try:
+                    login_resp = login_account(client, username, password)
+                    if not login_resp.get("success"):
+                        msg = login_resp.get("message", "")
+                        # 429 rate limit — retry after wait
+                        if "429" in msg or "rate" in msg.lower():
+                            if attempt <= MAX_RETRIES:
+                                log.warning("Rate limited, retrying", extra={"username": username, "attempt": attempt, "wait": RETRY_WAIT})
+                                time.sleep(RETRY_WAIT)
+                                continue
+                        result["last_result"] = f"登录失败: {msg}"
+                        # Don't mark as failed for transient errors — keep active so next cron retries
+                        if "429" in msg:
+                            result["status"] = "active"
+                        log.warning("Login failed", extra={"username": username, "reason": msg})
+                        break
 
-                user_id = str(login_resp.get("data", {}).get("id", ""))
-                headers = {}
-                if profile.api_user_key and user_id:
-                    headers[profile.api_user_key] = user_id
+                    user_id = str(login_resp.get("data", {}).get("id", ""))
+                    headers = {}
+                    if profile.api_user_key and user_id:
+                        headers[profile.api_user_key] = user_id
 
-                checkin_resp = checkin_account(client, headers, sign_in_url)
-                if checkin_resp.get("success"):
-                    quota = checkin_resp.get("data", {}).get("quota_awarded", 0)
-                    result["status"] = "active"
-                    result["last_result"] = f"签到成功 +${quota/500000:.2f}"
-                    result["checkin_time"] = checkin_resp.get("data", {}).get("checkin_date", "")
-
-                    info = get_user_info(client, headers, user_info_url)
-                    if info.get("success"):
-                        result["balance"] = str(info.get("quota", 0))
-
-                    log.info("Checkin success", extra={"username": username, "quota": quota})
-                else:
-                    msg = checkin_resp.get('message', '')
-                    if '已签到' in msg or '已经签到' in msg or 'already' in msg.lower():
+                    checkin_resp = checkin_account(client, headers, sign_in_url)
+                    if checkin_resp.get("success"):
+                        quota = checkin_resp.get("data", {}).get("quota_awarded", 0)
                         result["status"] = "active"
-                        result["last_result"] = "今日已签到"
-                        result["checkin_time"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                        result["last_result"] = f"签到成功 +${quota/500000:.2f}"
+                        result["checkin_time"] = checkin_resp.get("data", {}).get("checkin_date", "")
+
                         info = get_user_info(client, headers, user_info_url)
                         if info.get("success"):
                             result["balance"] = str(info.get("quota", 0))
-                        log.info("Already checked in", extra={"username": username})
-                    else:
-                        result["last_result"] = f"签到失败: {msg}"
-                        log.warning("Checkin failed", extra={"username": username, "reason": msg})
 
-            except Exception as e:
-                result["last_result"] = f"异常: {str(e)[:100]}"
-                log.error("Checkin exception", extra={"username": username, "error": str(e)[:100]})
+                        log.info("Checkin success", extra={"username": username, "quota": quota})
+                    else:
+                        msg = checkin_resp.get('message', '')
+                        if '已签到' in msg or '已经签到' in msg or 'already' in msg.lower():
+                            result["status"] = "active"
+                            result["last_result"] = "今日已签到"
+                            result["checkin_time"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                            info = get_user_info(client, headers, user_info_url)
+                            if info.get("success"):
+                                result["balance"] = str(info.get("quota", 0))
+                            log.info("Already checked in", extra={"username": username})
+                        else:
+                            result["last_result"] = f"签到失败: {msg}"
+                            log.warning("Checkin failed", extra={"username": username, "reason": msg})
+                    break
+
+                except Exception as e:
+                    result["last_result"] = f"异常: {str(e)[:100]}"
+                    log.error("Checkin exception", extra={"username": username, "error": str(e)[:100]})
+                    break
 
         results.append(result)
 
         if i < len(accounts) - 1:
-            delay = random.randint(5, 10)
+            delay = random.randint(10, 20)
             time.sleep(delay)
 
     RESULTS_FILE.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
