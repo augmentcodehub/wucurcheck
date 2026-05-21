@@ -5,6 +5,19 @@
 import { encode, decode } from "cborg";
 import { log } from "../lib/log.js";
 
+/** Custom CBOR tag decoders — tag 1 = epoch timestamp → ISO string */
+const TAGS: Record<number, (_value: unknown) => unknown> = {
+  1: (val: unknown) => {
+    if (typeof val !== "number") return val;
+    const ts = val > 1e12 ? val : val * 1000;
+    return new Date(ts).toISOString();
+  },
+};
+
+function decodeCbor(buf: Uint8Array): Record<string, unknown> {
+  return decode(buf, { tags: TAGS, allowIndefinite: true }) as Record<string, unknown>;
+}
+
 interface UsageResult {
   usage_current?: number;
   usage_limit?: number;
@@ -41,14 +54,14 @@ async function request(operation: string, body: object, accessToken: string, idp
   if (!resp.ok) {
     let errorMsg = `HTTP ${resp.status}`;
     try {
-      const errData = decode(new Uint8Array(await resp.arrayBuffer())) as Record<string, string>;
+      const errData = decodeCbor(new Uint8Array(await resp.arrayBuffer())) as Record<string, string>;
       const errType = (errData.__type || "").split("#").pop() || "";
       errorMsg = errData.message ? `${errType}: ${errData.message}` : errorMsg;
     } catch { /* ignore */ }
     throw new KiroApiError(resp.status, errorMsg);
   }
 
-  return decode(new Uint8Array(await resp.arrayBuffer())) as Record<string, unknown>;
+  return decodeCbor(new Uint8Array(await resp.arrayBuffer()));
 }
 
 export async function fetchAccountStatus(accessToken: string, idp = "BuilderId"): Promise<UsageResult> {

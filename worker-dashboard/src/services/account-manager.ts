@@ -35,6 +35,7 @@ export async function refreshSingleAccount(env: Env, account: Account): Promise<
 
   const accessToken = result.access_token ?? "";
   const status = await fetchAccountStatus(accessToken, account.idp || "BuilderId");
+  log.info("kiro_usage_fetch", { username: account.username, error: status.error || "", has_usage: String(!!status.usage_current) });
   if (status.suspended) {
     update.status = "suspended";
     update.last_refresh_error = status.error;
