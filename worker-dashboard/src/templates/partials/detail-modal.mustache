@@ -1,20 +1,10 @@
 <dialog id="account-detail" class="modal">
   <div class="modal-box">
-    <h3 class="text-lg font-bold mb-4" id="detail-title">账号详情</h3>
-    <div class="space-y-2 text-sm">
-      <div><span class="font-semibold">平台：</span><span id="detail-platform"></span></div>
-      <div><span class="font-semibold">状态：</span><span id="detail-status" class="badge badge-sm"></span></div>
-      <div><span class="font-semibold">余额：</span><span id="detail-balance"></span></div>
-      <div><span class="font-semibold">签到时间：</span><span id="detail-checkin-time"></span></div>
-      <div><span class="font-semibold">最近结果：</span><span id="detail-last-result"></span></div>
-      <div id="detail-sso-row" class="hidden"><span class="font-semibold">SSO Token：</span><span id="detail-sso-token" class="break-all text-xs font-mono"></span></div>
-    </div>
-    <div id="detail-logs" class="mt-4 hidden">
-      <div class="divider text-xs">失败记录</div>
-      <div id="detail-logs-list" class="max-h-40 overflow-y-auto space-y-1 text-xs"></div>
+    <h3 class="text-lg font-bold mb-4">账号详情</h3>
+    <div id="detail-body">
+      <span class="loading loading-dots loading-md"></span>
     </div>
     <div class="modal-action">
-      <button class="btn" onclick="copyDetail()">📋 复制</button>
       <form method="dialog"><button class="btn">关闭</button></form>
     </div>
   </div>

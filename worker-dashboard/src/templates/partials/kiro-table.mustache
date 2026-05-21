@@ -1,6 +1,6 @@
 <div class="flex justify-end mb-2 gap-2">
   <a href="/api/export/kiro" class="btn btn-xs btn-outline btn-info">📥 导出 JSON</a>
-  <button type="button" class="btn btn-xs btn-outline btn-secondary" onclick="refreshAllKiro(event)">🔄 批量刷新 Token</button>
+  <button type="button" class="btn btn-xs btn-outline btn-secondary" hx-post="/api/trigger" hx-vals='{"action":"kiro_refresh_all"}' hx-swap="none">🔄 批量刷新 Token</button>
 </div>
 <div class="overflow-x-auto bg-base-100 rounded-box shadow">
 <table class="table table-sm">
@@ -20,8 +20,8 @@
       <td class="text-xs">{{displayRefresh}}</td>
       <td>{{{statusBadge}}}</td>
       <td class="flex gap-1">
-        <button type="button" class="btn btn-xs btn-ghost" onclick="showDetail('{{username}}')">详情</button>
-        <button type="button" class="btn btn-xs btn-secondary" onclick="refreshKiro(event, '{{username}}')">刷新</button>
+        <button type="button" class="btn btn-xs btn-ghost" hx-get="/api/account/{{username}}" hx-target="#detail-body" hx-swap="innerHTML" onclick="document.getElementById('account-detail').showModal()">详情</button>
+        <button type="button" class="btn btn-xs btn-secondary" hx-post="/api/trigger" hx-vals='{"action":"kiro_refresh","target":"{{username}}"}' hx-swap="none">刷新</button>
       </td>
     </tr>
     {{/accounts}}
