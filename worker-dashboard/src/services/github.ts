@@ -20,7 +20,7 @@ interface DispatchResult {
 
 export async function triggerWorkflow(env: Env, { action, target, callbackUrl, inputs }: DispatchParams): Promise<DispatchResult> {
   const repo = env.GITHUB_REPO;
-  const token = (env as Record<string, unknown>).GITHUB_TOKEN as string | undefined;
+  const token = env.GITHUB_TOKEN;
 
   const workflow = action === "register"
     ? "register.yml"

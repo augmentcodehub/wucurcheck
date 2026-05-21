@@ -16,7 +16,11 @@ declare namespace Cloudflare {
 	}
 	interface Env extends __BaseEnv_Env {}
 }
-interface Env extends __BaseEnv_Env {}
+interface Env extends __BaseEnv_Env {
+  // Runtime secrets (not in wrangler.toml, set via dashboard/wrangler secret)
+  GITHUB_TOKEN?: string;
+  WORKER_SECRET?: string;
+}
 declare module "*.mustache" {
 	const value: string;
 	export default value;

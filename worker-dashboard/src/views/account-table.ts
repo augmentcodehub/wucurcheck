@@ -2,13 +2,30 @@
 
 import Mustache from "mustache";
 import { badge, timeAgo, esc } from "./helpers.js";
+import type { Account } from "../types/index.js";
 import toolbarTemplate from "../templates/partials/toolbar.mustache";
 import wucurTableTemplate from "../templates/partials/wucur-table.mustache";
 import kiroTableTemplate from "../templates/partials/kiro-table.mustache";
 
-// ============ Data Preparation ============
+interface WucurViewModel {
+  username: string;
+  password: string;
+  displayBalance: string;
+  displayTime: string;
+  statusBadge: string;
+}
 
-function prepareWucurAccount(a) {
+interface KiroViewModel {
+  username: string;
+  password: string;
+  usageBadge: string;
+  subBadge: string;
+  displayDays: string;
+  displayRefresh: string;
+  statusBadge: string;
+}
+
+function prepareWucurAccount(a: Account): WucurViewModel {
   return {
     username: esc(a.username),
     password: esc(a.password),
@@ -18,7 +35,7 @@ function prepareWucurAccount(a) {
   };
 }
 
-function prepareKiroAccount(a) {
+function prepareKiroAccount(a: Account): KiroViewModel {
   const current = a.usage_current ?? 0;
   const limit = a.usage_limit ?? 0;
   let usageBadge = `<span class="text-base-content/50">-</span>`;
@@ -43,9 +60,7 @@ function prepareKiroAccount(a) {
   };
 }
 
-// ============ Public API ============
-
-export function renderToolbar(totalCount, wucurToday, wucurCount, kiroCount) {
+export function renderToolbar(totalCount: number, wucurToday: number, wucurCount: number, kiroCount: number): string {
   return Mustache.render(toolbarTemplate, {
     totalCount,
     wucurToday,
@@ -55,14 +70,13 @@ export function renderToolbar(totalCount, wucurToday, wucurCount, kiroCount) {
   });
 }
 
-export function renderTable(accounts) {
+export function renderTable(accounts: Account[]): string {
   const wucurAccounts = accounts.filter((a) => !a.platform || a.platform === "wucur");
   const kiroAccounts = accounts.filter((a) => a.platform === "kiro");
 
   const wucurHtml = Mustache.render(wucurTableTemplate, {
     accounts: wucurAccounts.map(prepareWucurAccount),
   });
-
   const kiroHtml = Mustache.render(kiroTableTemplate, {
     accounts: kiroAccounts.map(prepareKiroAccount),
   });
