@@ -20,7 +20,6 @@ export async function pageAccounts(request, env) {
     renderRegisterModal(),
     renderRegisterKiroModal(),
     renderTable(accounts),
-    '<div id="toast" class="toast toast-end hidden"><div class="alert" id="toast-msg"></div></div>',
     renderSettingsPanel(),
     renderClientScript(accountsJson),
   ].join("\n");

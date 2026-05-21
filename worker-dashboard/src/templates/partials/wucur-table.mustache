@@ -14,8 +14,8 @@
       <td>{{displayTime}}</td>
       <td>{{{statusBadge}}}</td>
       <td class="flex gap-1">
-        <button type="button" class="btn btn-xs btn-ghost" onclick="showDetail('{{username}}')">详情</button>
-        <button type="button" class="btn btn-xs btn-primary" onclick="trigger(event, '{{username}}')">签到</button>
+        <button type="button" class="btn btn-xs btn-ghost" hx-get="/api/account/{{username}}" hx-target="#detail-body" hx-swap="innerHTML" onclick="document.getElementById('account-detail').showModal()">详情</button>
+        <button type="button" class="btn btn-xs btn-primary" hx-post="/api/trigger" hx-vals='{"action":"checkin","target":"{{username}}"}' hx-swap="none">签到</button>
       </td>
     </tr>
     {{/accounts}}
