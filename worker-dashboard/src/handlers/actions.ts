@@ -6,6 +6,7 @@ import { triggerWorkflow } from "../services/github.js";
 import { acquireLock } from "../lib/trigger-lock.js";
 import { hasValidSession } from "../services/auth-service.js";
 import { KvAccountRepository } from "../repositories/kv-account-repository.js";
+import { refreshSingleAccount, refreshAllKiroAccounts } from "../services/account-manager.js";
 import { Res } from "../lib/response.js";
 import { isToday } from "../views/helpers.js";
 
@@ -51,6 +52,20 @@ async function handleCheckinUnchecked(_target: string, _body: Record<string, unk
   return Res.json({ success: true, workflow: result.workflow, dispatch_id: result.dispatch_id, count: unchecked.length });
 }
 
+async function handleKiroRefresh(target: string, _body: Record<string, unknown>, env: Env): Promise<Response> {
+  if (!target) return Res.error("MISSING_TARGET", "target required");
+  const repo = new KvAccountRepository(env.KV);
+  const account = await repo.get(target);
+  if (!account) return Res.error("NOT_FOUND", "账号不存在", 404);
+  const result = await refreshSingleAccount(env, account);
+  return Res.json({ success: result.success, error: result.error });
+}
+
+async function handleKiroRefreshAll(_target: string, _body: Record<string, unknown>, env: Env): Promise<Response> {
+  const result = await refreshAllKiroAccounts(env);
+  return Res.json({ success: true, total: result.total, success_count: result.success, failed: result.failed, count: result.total });
+}
+
 type LocalHandler = (target: string, body: Record<string, unknown>, env: Env, request: Request) => Promise<Response>;
 
 const LOCAL_ACTIONS: Record<string, LocalHandler> = {
@@ -58,6 +73,8 @@ const LOCAL_ACTIONS: Record<string, LocalHandler> = {
   delete_all: handleDeleteAll,
   delete_failed: handleDeleteFailed,
   checkin_unchecked: handleCheckinUnchecked,
+  kiro_refresh: handleKiroRefresh,
+  kiro_refresh_all: handleKiroRefreshAll,
 };
 
 export async function apiTrigger(request: Request, env: Env): Promise<Response> {
