@@ -26,6 +26,8 @@ export async function triggerWorkflow(env: Env, { action, target, callbackUrl, i
     ? "register.yml"
     : action === "register_kiro"
     ? "register_kiro.yml"
+    : action === "register_kiro_api"
+    ? "register_kiro_api.yml"
     : action === "checkin_unchecked"
     ? "checkin_batch.yml"
     : action === "kiro_refresh" || action === "kiro_refresh_all"
@@ -49,6 +51,13 @@ export async function triggerWorkflow(env: Env, { action, target, callbackUrl, i
       callback_url: callbackUrl || "",
     };
   } else if (action === "register_kiro") {
+    workflowInputs = {
+      count: inputs?.count || "1",
+      email_domain: inputs?.email_domain || "ouraihub.com",
+      proxy: inputs?.proxy || "",
+      callback_url: callbackUrl || "",
+    };
+  } else if (action === "register_kiro_api") {
     workflowInputs = {
       count: inputs?.count || "1",
       email_domain: inputs?.email_domain || "ouraihub.com",
