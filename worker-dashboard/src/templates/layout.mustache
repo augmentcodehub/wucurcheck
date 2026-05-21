@@ -7,8 +7,9 @@
 <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css"/>
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+<script src="https://unpkg.com/htmx-ext-json-enc@2.0.1/json-enc.js"></script>
 </head>
-<body>
+<body hx-ext="json-enc">
 <script>var t=localStorage.getItem('theme');if(t){document.documentElement.setAttribute('data-theme',t);document.addEventListener('DOMContentLoaded',function(){var s=document.querySelector('.drawer-side select');if(s)s.value=t;});}</script>
 <div class="drawer lg:drawer-open">
   <input id="drawer" type="checkbox" class="drawer-toggle"/>
@@ -52,6 +53,15 @@ function showToast(msg, ok) {
   const t = document.getElementById("toast"), m = document.getElementById("toast-msg");
   m.textContent = msg; m.className = "alert " + (ok ? "alert-success" : "alert-error");
   t.classList.remove("hidden"); setTimeout(() => t.classList.add("hidden"), 3000);
+}
+function togglePwd(btn) {
+  const span = btn.parentElement.querySelector(".pwd-mask");
+  if (span.textContent === "••••••") { span.textContent = span.dataset.p; btn.textContent = "🙈"; }
+  else { span.textContent = "••••••"; btn.textContent = "👁"; }
+}
+function copyPwd(btn) {
+  const span = btn.parentElement.querySelector(".pwd-mask");
+  navigator.clipboard.writeText(span.dataset.p).then(() => showToast("✅ 已复制", true)).catch(() => showToast("❌ 复制失败", false));
 }
 document.body.addEventListener("htmx:afterRequest", function(e) {
   const xhr = e.detail.xhr;

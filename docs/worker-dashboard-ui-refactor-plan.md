@@ -1,5 +1,7 @@
 # Worker Dashboard UI 重构方案
 
+> ✅ **已完成** — 2026-05-21 三个 Phase 全部执行完毕（Mustache + HTMX + Islands）。
+
 ## 目标
 
 将当前手拼 HTML 字符串的方式，升级为 **Mustache 模板 + HTMX 局部更新 + Islands 交互**，提升可维护性和开发体验。
