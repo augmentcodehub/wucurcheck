@@ -1,0 +1,28 @@
+<div class="overflow-x-auto bg-base-100 rounded-box shadow">
+<table class="table table-sm">
+  <thead><tr>
+    <th><input type="checkbox" class="checkbox checkbox-xs" onchange="toggleAll(this)"/></th>
+    <th>用户名</th><th>密码</th><th>余额</th><th>签到时间</th><th>状态</th><th>操作</th>
+  </tr></thead>
+  <tbody id="tbody-wucur">
+    {{#accounts}}
+    <tr>
+      <td><input type="checkbox" class="checkbox checkbox-xs row-check" value="{{username}}"/></td>
+      <td class="font-mono">{{username}}</td>
+      <td class="font-mono text-xs"><span class="cursor-pointer" onclick="if(this.textContent==='••••••'){this.textContent=this.dataset.p}else{this.textContent='••••••'}" data-p="{{password}}">••••••</span></td>
+      <td>{{displayBalance}}</td>
+      <td>{{displayTime}}</td>
+      <td>{{{statusBadge}}}</td>
+      <td class="flex gap-1">
+        <button type="button" class="btn btn-xs btn-ghost" onclick="showDetail('{{username}}')">详情</button>
+        <button type="button" class="btn btn-xs btn-primary" onclick="trigger(event, '{{username}}')">签到</button>
+      </td>
+    </tr>
+    {{/accounts}}
+    {{^accounts}}
+    <tr><td colspan="7" class="text-center py-8 text-base-content/50">暂无账号</td></tr>
+    {{/accounts}}
+  </tbody>
+</table>
+</div>
+<div class="flex justify-center mt-4 gap-1" id="tbody-wucur-pagination"></div>

@@ -1,37 +1,7 @@
-/** Settings panels (cron + password + users) */
+/** Settings panel — Mustache template rendering */
+
+import settingsTemplate from "../templates/partials/settings.mustache";
 
 export function renderSettingsPanel() {
-  return `
-<div class="mt-6 bg-base-100 rounded-box shadow p-4">
-  <h3 class="font-bold mb-2">⏰ 定时签到设置</h3>
-  <div class="flex flex-wrap gap-2 items-center">
-    <span class="text-sm">每天签到时间（北京时间）：</span>
-    <select id="cron-hours" class="select select-bordered select-sm" multiple size="3">
-      <option value="0">08:00</option><option value="4">12:00</option><option value="6">14:00</option><option value="8">16:00</option><option value="10">18:00</option><option value="12">20:00</option><option value="14">22:00</option><option value="16">00:00</option>
-    </select>
-    <button class="btn btn-sm btn-primary" onclick="saveCron()">保存</button>
-    <span id="cron-status" class="text-xs"></span>
-  </div>
-  <p class="text-xs text-base-content/50 mt-1">可多选，按住 Ctrl 选多个时间点</p>
-</div>
-
-<div class="mt-4 bg-base-100 rounded-box shadow p-4">
-  <h3 class="font-bold mb-2">🔑 修改密码</h3>
-  <div class="flex gap-2 items-center">
-    <input id="new-pass" type="password" placeholder="输入新密码" class="input input-bordered input-sm w-48"/>
-    <button class="btn btn-sm btn-warning" onclick="changePass()">修改</button>
-    <span id="pass-status" class="text-xs"></span>
-  </div>
-</div>
-
-<div class="mt-4 bg-base-100 rounded-box shadow p-4">
-  <h3 class="font-bold mb-2">👥 用户管理</h3>
-  <div id="user-list" class="mb-3 text-sm"></div>
-  <div class="flex gap-2 items-center">
-    <input id="new-user" type="text" placeholder="用户名" class="input input-bordered input-sm w-32"/>
-    <input id="new-user-pass" type="text" placeholder="密码" class="input input-bordered input-sm w-32"/>
-    <select id="new-user-role" class="select select-bordered select-sm w-28"><option value="viewer">viewer</option><option value="admin">admin</option></select>
-    <button class="btn btn-sm btn-success" onclick="addUser()">添加用户</button>
-  </div>
-</div>`;
+  return settingsTemplate;
 }

@@ -8,6 +8,7 @@
 import { log } from "../lib/log.js";
 import { timingSafeEqual } from "../lib/crypto.js";
 import { putAccount } from "../lib/store.js";
+import { writeFailLog } from "../lib/checkin_log.js";
 import { releaseLock } from "../lib/trigger_lock.js";
 
 // ============ Action Handlers ============
@@ -31,6 +32,9 @@ async function handleCheckin(data, env) {
     status: data.status || "active",
     last_result: data.last_result || `签到成功${data.checkin_time ? ` ${data.checkin_time}` : ""}`,
   });
+  if (data.status === "failed") {
+    await writeFailLog(env, data.username, { date: new Date().toISOString().slice(0, 10), reason: data.last_result || "未知" });
+  }
   await releaseLock(env, `checkin:${data.username}`);
   await releaseLock(env, "checkin:_all");
 }
@@ -43,6 +47,9 @@ async function handleBatchResult(data, env) {
         ...item,
         last_result: item.last_result || item.message || "批量结果更新",
       });
+      if (item.status === "failed") {
+        await writeFailLog(env, item.username, { date: new Date().toISOString().slice(0, 10), reason: item.last_result || item.message || "未知" });
+      }
     }
   }
   await releaseLock(env, "checkin:_all");

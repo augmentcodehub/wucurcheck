@@ -1,0 +1,24 @@
+<div class="flex items-center justify-between mb-4">
+  <h2 class="text-2xl font-bold">账号管理</h2>
+  <div class="flex gap-2">
+    <button type="button" class="btn btn-success btn-sm" onclick="document.getElementById('register-modal').showModal()">➕ 批量注册</button>
+    <button type="button" class="btn btn-info btn-sm" onclick="document.getElementById('register-kiro-modal').showModal()">🚀 注册 Kiro</button>
+    <button type="button" class="btn btn-primary btn-sm" onclick="trigger(event, '')">🔄 手动触发签到</button>
+    <button type="button" class="btn btn-accent btn-sm" onclick="checkinUnchecked(event)">⚡ 一键签到未签到</button>
+    <a href="/api/export/csv" class="btn btn-ghost btn-sm">📥 导出CSV</a>
+    <div class="dropdown dropdown-end">
+      <label tabindex="0" class="btn btn-error btn-sm btn-outline">🗑 删除</label>
+      <ul tabindex="0" class="dropdown-content menu bg-base-100 rounded-box shadow w-48 z-10">
+        <li><a onclick="delSelected()">删除选中的</a></li>
+        <li><a onclick="batchDel('delete_failed')">删除失败的</a></li>
+        <li><a onclick="batchDel('delete_all')">删除全部</a></li>
+      </ul>
+    </div>
+  </div>
+</div>
+<div class="stats shadow mb-4">
+  <div class="stat"><div class="stat-title">总账号</div><div class="stat-value">{{totalCount}}</div></div>
+  <div class="stat"><div class="stat-title">Wucur 签到</div><div class="stat-value text-success">{{wucurToday}}/{{wucurCount}}</div></div>
+  <div class="stat"><div class="stat-title">Wucur 未签</div><div class="stat-value text-warning">{{wucurUnchecked}}</div></div>
+  <div class="stat"><div class="stat-title">Kiro</div><div class="stat-value text-info">{{kiroCount}}</div></div>
+</div>
