@@ -33,7 +33,8 @@ export async function refreshSingleAccount(env: Env, account: Account): Promise<
     token_expires_at: result.expires_in ? new Date(Date.now() + result.expires_in * 1000).toISOString() : undefined,
   };
 
-  const status = await fetchAccountStatus(result.access_token!, account.idp || "BuilderId");
+  const accessToken = result.access_token ?? "";
+  const status = await fetchAccountStatus(accessToken, account.idp || "BuilderId");
   if (status.suspended) {
     update.status = "suspended";
     update.last_refresh_error = status.error;
@@ -78,7 +79,11 @@ export async function refreshAllKiroAccounts(env: Env): Promise<{ total: number;
 async function retrySsoDeviceAuth(env: Env, account: Account): Promise<RefreshResult> {
   log.info("sso_device_auth_retry", { username: account.username });
   const repo = new KvAccountRepository(env.KV);
-  const result = await ssoDeviceAuth(account.sso_token!, account.region || "us-east-1");
+  if (!account.sso_token) {
+    await repo.put(account.username, { last_refresh_at: new Date().toISOString(), last_refresh_error: "No sso_token" } as Partial<Account>);
+    return { success: false, error: "No sso_token" };
+  }
+  const result = await ssoDeviceAuth(account.sso_token, account.region || "us-east-1");
 
   if (!result.success) {
     await repo.put(account.username, { last_refresh_at: new Date().toISOString(), last_refresh_error: `Device Auth failed: ${result.error}` } as Partial<Account>);
@@ -95,7 +100,7 @@ async function retrySsoDeviceAuth(env: Env, account: Account): Promise<RefreshRe
     token_expires_at: result.expiresIn ? new Date(Date.now() + result.expiresIn * 1000).toISOString() : undefined,
   };
 
-  const status = await fetchAccountStatus(result.accessToken!, account.idp || "BuilderId");
+  const status = await fetchAccountStatus(result.accessToken ?? "", account.idp || "BuilderId");
   if (status.suspended) { update.status = "suspended"; update.last_refresh_error = status.error; }
   else if (!status.error) { update.usage_current = status.usage_current; update.usage_limit = status.usage_limit; update.subscription_type = status.subscription_type; update.days_remaining = status.days_remaining ?? undefined; }
 
