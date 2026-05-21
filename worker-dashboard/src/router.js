@@ -3,6 +3,7 @@ import { apiTrigger } from "./pages/actions.js";
 import { apiSettings } from "./pages/settings.js";
 import { queryFailLogs } from "./lib/checkin_log.js";
 import { getAccount } from "./lib/store.js";
+import { serveStatic } from "./lib/static.js";
 import { badge, timeAgo, esc } from "./views/helpers.js";
 import Mustache from "mustache";
 import accountDetailTemplate from "./templates/partials/account-detail.mustache";
@@ -57,6 +58,9 @@ export async function router(path, method, request, env) {
   // Dynamic routes
   if (method === "GET" && path.startsWith("/api/account/")) {
     return apiAccountDetail(request, env);
+  }
+  if (method === "GET" && path.startsWith("/static/")) {
+    return serveStatic(path);
   }
 
   return new Response("Not Found", { status: 404 });

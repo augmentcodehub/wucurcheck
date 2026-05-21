@@ -4,12 +4,9 @@ import { isToday } from "../views/helpers.js";
 import { renderToolbar, renderTable } from "../views/account_table.js";
 import { renderDetailModal, renderRegisterModal, renderRegisterKiroModal } from "../views/modals.js";
 import { renderSettingsPanel } from "../views/settings_panel.js";
-import { renderClientScript } from "../views/client_script.js";
 
 export async function pageAccounts(request, env) {
   const accounts = await listAccounts(env);
-  const accountsJson = JSON.stringify(accounts).replace(/</g, "\\u003c");
-  const todayCount = accounts.filter((a) => isToday(a.checkin_time)).length;
   const wucurAccounts = accounts.filter((a) => !a.platform || a.platform === "wucur");
   const kiroAccounts = accounts.filter((a) => a.platform === "kiro");
   const wucurToday = wucurAccounts.filter((a) => isToday(a.checkin_time)).length;
@@ -21,7 +18,6 @@ export async function pageAccounts(request, env) {
     renderRegisterKiroModal(),
     renderTable(accounts),
     renderSettingsPanel(),
-    renderClientScript(accountsJson),
   ].join("\n");
 
   return layout("账号管理", content);
