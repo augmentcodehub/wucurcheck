@@ -26,6 +26,9 @@ export interface Account {
   usage_limit?: number;
   days_remaining?: number;
   sso_token?: string;
+  auth_method?: string;
+  idp?: string;
+  region?: string;
 }
 
 /** Repository interface for account persistence. */
