@@ -9,7 +9,13 @@
     <tr>
       <td><input type="checkbox" class="checkbox checkbox-xs row-check" value="{{username}}"/></td>
       <td class="font-mono">{{username}}</td>
-      <td class="font-mono text-xs"><span class="cursor-pointer" onclick="if(this.textContent==='••••••'){this.textContent=this.dataset.p}else{this.textContent='••••••'}" data-p="{{password}}">••••••</span></td>
+      <td class="font-mono text-xs">
+        <span class="inline-flex items-center gap-1">
+          <span class="pwd-mask" data-p="{{password}}">••••••</span>
+          <button type="button" class="btn btn-ghost btn-xs px-1" onclick="togglePwd(this)" title="显示/隐藏">👁</button>
+          <button type="button" class="btn btn-ghost btn-xs px-1" onclick="copyPwd(this)" title="复制">📋</button>
+        </span>
+      </td>
       <td>{{displayBalance}}</td>
       <td>{{displayTime}}</td>
       <td>{{{statusBadge}}}</td>

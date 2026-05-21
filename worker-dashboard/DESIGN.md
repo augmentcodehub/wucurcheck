@@ -11,10 +11,14 @@
 
 | 层 | 技术 | 说明 |
 |---|------|------|
+| 语言 | TypeScript (strict) | 零 any，Repository 模式 |
 | CSS 框架 | Tailwind CSS 4 (Browser CDN) | 实用类优先 |
 | 组件库 | daisyUI 5 (CDN) | 语义化 class |
-| 构建 | 无 | Worker 直出 HTML，零构建 |
-| 渲染 | 服务端字符串模板 | JS 模板字面量拼接 |
+| 模板 | Mustache | 服务端渲染，HTML 与逻辑分离 |
+| 交互 | HTMX 2.0 (CDN) | 声明式 hx-post/hx-get |
+| 客户端 JS | Islands 架构 | 4 个独立小文件，按需加载 |
+| 构建 | wrangler (esbuild) | TS → 单文件 bundle |
+| 类型生成 | `wrangler types` | Env 接口自动同步 |
 
 ### CDN 引入
 
@@ -22,6 +26,7 @@
 <link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css"/>
 <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css"/>
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script src="https://unpkg.com/htmx.org@2.0.4"></script>
 ```
 
 ## 3. Layout Principles
