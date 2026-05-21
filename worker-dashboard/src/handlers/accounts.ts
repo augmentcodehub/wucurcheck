@@ -1,6 +1,5 @@
 /** Accounts page + API handlers */
 
-import Mustache from "mustache";
 import { KvAccountRepository } from "../repositories/kv-account-repository.js";
 import { isToday } from "../views/helpers.js";
 import { renderToolbar, renderTable } from "../views/account-table.js";
@@ -8,22 +7,8 @@ import { renderDetailModal, renderRegisterModal, renderRegisterKiroModal } from 
 import { renderSettingsPanel } from "../views/settings-panel.js";
 import { Res } from "../lib/response.js";
 import { CONTENT_TYPE } from "../lib/constants.js";
-import layoutTemplate from "../templates/layout.mustache";
+import { layout } from "../lib/layout.js";
 import type { Account } from "../types/index.js";
-
-const THEMES = [
-  "light", "dark", "cupcake", "bumblebee", "emerald", "corporate",
-  "synthwave", "retro", "cyberpunk", "valentine", "halloween", "garden",
-  "forest", "aqua", "lofi", "pastel", "fantasy", "wireframe", "black",
-  "luxury", "dracula", "cmyk", "autumn", "business", "acid", "lemonade",
-  "night", "coffee", "winter", "dim", "nord", "sunset", "caramellatte",
-  "abyss", "silk",
-];
-
-function layout(title: string, content: string): Response {
-  const html = Mustache.render(layoutTemplate, { title, content, themes: THEMES });
-  return new Response(html, { headers: { "Content-Type": CONTENT_TYPE.HTML } });
-}
 
 export async function pageAccounts(_request: Request, env: Env): Promise<Response> {
   const repo = new KvAccountRepository(env.KV);
