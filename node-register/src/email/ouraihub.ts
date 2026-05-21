@@ -21,7 +21,7 @@ export class OuraihubEmailService implements TempEmailService {
   }
 
   async create(): Promise<string> {
-    const name = 'kiro' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
+    const name = 'k' + Math.random().toString(36).slice(2, 10)
 
     const resp = await fetch(`${this.baseURL}/emails/generate`, {
       method: 'POST',
