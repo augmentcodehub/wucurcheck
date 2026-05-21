@@ -9,8 +9,9 @@
  */
 
 import { log } from "./log.js";
+import { KV_PREFIX } from "./constants.js";
 
-const PREFIX = "fail_log:";
+const PREFIX = KV_PREFIX.FAIL_LOG;
 
 /**
  * @typedef {Object} FailLogEntry

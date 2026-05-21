@@ -9,8 +9,9 @@
  */
 
 import { log } from "./log.js";
+import { KV_PREFIX } from "./constants.js";
 
-const PREFIX = "account:";
+const PREFIX = KV_PREFIX.ACCOUNT;
 
 /**
  * List all accounts (parallel KV reads).

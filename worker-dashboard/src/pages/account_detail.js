@@ -5,6 +5,7 @@
 import Mustache from "mustache";
 import { getAccount } from "../lib/store.js";
 import { queryFailLogs } from "../lib/checkin_log.js";
+import { CONTENT_TYPE } from "../lib/constants.js";
 import { badge, timeAgo, esc } from "../views/helpers.js";
 import { log } from "../lib/log.js";
 import accountDetailTemplate from "../templates/partials/account-detail.mustache";
@@ -39,7 +40,7 @@ export async function apiAccountDetail(request, env) {
     logs,
   });
 
-  return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+  return new Response(html, { headers: { "Content-Type": CONTENT_TYPE.HTML } });
 }
 
 /**

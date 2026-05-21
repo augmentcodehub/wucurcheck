@@ -3,6 +3,7 @@
  */
 
 import { log, setContext } from "./lib/log.js";
+import { KV_KEY } from "./lib/constants.js";
 import { handleLogin, handleLogout, authMiddleware } from "./auth.js";
 import { handleCallback } from "./pages/callback.js";
 import { apiTrigger } from "./pages/actions.js";
@@ -44,7 +45,7 @@ export default {
   // 每小时检查一次，根据 KV 配置决定是否触发签到
   async scheduled(event, env, ctx) {
     setContext({ trigger: "cron", rid: crypto.randomUUID().slice(0, 8) });
-    const config = await env.KV.get("config:cron_hour", "json");
+    const config = await env.KV.get(KV_KEY.CRON_HOUR, "json");
     const hours = config || [0];
     const currentHour = new Date().getUTCHours();
 

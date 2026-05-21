@@ -4,6 +4,7 @@
 
 import Mustache from "mustache";
 import layoutTemplate from "./templates/layout.mustache";
+import { CONTENT_TYPE } from "./lib/constants.js";
 
 const THEMES = [
   "light", "dark", "cupcake", "bumblebee", "emerald", "corporate",
@@ -23,6 +24,6 @@ const THEMES = [
 export function layout(title, content) {
   const html = Mustache.render(layoutTemplate, { title, content, themes: THEMES });
   return new Response(html, {
-    headers: { "Content-Type": "text/html; charset=utf-8" },
+    headers: { "Content-Type": CONTENT_TYPE.HTML },
   });
 }

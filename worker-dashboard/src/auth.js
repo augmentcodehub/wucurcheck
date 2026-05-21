@@ -1,8 +1,8 @@
 import { log } from "./lib/log.js";
 import { timingSafeEqual } from "./lib/crypto.js";
+import { KV_PREFIX, KV_KEY, TTL } from "./lib/constants.js";
 
 const SESSION_COOKIE = "session";
-const SESSION_TTL = 86400 * 7;
 
 export async function authMiddleware(request, env) {
   const valid = await hasValidSession(request, env);
@@ -15,7 +15,7 @@ export async function hasValidSession(request, env) {
   const match = cookie.match(/session=([^;]+)/);
   if (!match) return false;
   if (!env?.KV?.get) return false;
-  const stored = await env.KV.get(`session:${match[1]}`);
+  const stored = await env.KV.get(`${KV_PREFIX.SESSION}${match[1]}`);
   return Boolean(stored);
 }
 
@@ -23,7 +23,7 @@ export async function getSessionUser(request, env) {
   const cookie = request.headers.get("Cookie") || "";
   const match = cookie.match(/session=([^;]+)/);
   if (!match) return null;
-  return env.KV.get(`session:${match[1]}`);
+  return env.KV.get(`${KV_PREFIX.SESSION}${match[1]}`);
 }
 
 export async function handleLogin(env, request) {
@@ -36,12 +36,12 @@ export async function handleLogin(env, request) {
   const pass = form.get("pass") || "";
 
   // 从 KV 读用户表，没有则用环境变量的 admin
-  const kvUser = await env.KV.get(`user:${user}`, "json");
+  const kvUser = await env.KV.get(`${KV_PREFIX.USER}${user}`, "json");
   let valid = false;
   if (kvUser) {
     valid = timingSafeEqual(pass, kvUser.password || "");
   } else if (timingSafeEqual(user, env.ADMIN_USER || "admin")) {
-    const kvPass = await env.KV.get("config:admin_pass");
+    const kvPass = await env.KV.get(KV_KEY.ADMIN_PASS);
     valid = timingSafeEqual(pass, kvPass || env.ADMIN_PASS || "");
   }
 
@@ -51,13 +51,13 @@ export async function handleLogin(env, request) {
   }
 
   const token = crypto.randomUUID();
-  await env.KV.put(`session:${token}`, user, { expirationTtl: SESSION_TTL });
+  await env.KV.put(`${KV_PREFIX.SESSION}${token}`, user, { expirationTtl: TTL.SESSION });
   log.info("login_success", { user });
 
   const isLocal = new URL(request.url).hostname === "localhost";
   const cookieFlags = isLocal
-    ? `Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_TTL}`
-    : `Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_TTL}`;
+    ? `Path=/; HttpOnly; SameSite=Lax; Max-Age=${TTL.SESSION}`
+    : `Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${TTL.SESSION}`;
 
   return new Response(null, {
     status: 302,
