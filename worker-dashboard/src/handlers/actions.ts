@@ -7,7 +7,6 @@ import { triggerGitlabPipeline } from "../services/gitlab.js";
 import { acquireLock } from "../lib/trigger-lock.js";
 import { hasValidSession } from "../services/auth-service.js";
 import { KvAccountRepository } from "../repositories/kv-account-repository.js";
-import { refreshSingleAccount, refreshAllKiroAccounts } from "../services/account-manager.js";
 import { Res } from "../lib/response.js";
 import { isToday } from "../views/helpers.js";
 
@@ -53,18 +52,27 @@ async function handleCheckinUnchecked(_target: string, _body: Record<string, unk
   return Res.json({ success: true, workflow: result.workflow, dispatch_id: result.dispatch_id, count: unchecked.length });
 }
 
-async function handleKiroRefresh(target: string, _body: Record<string, unknown>, env: Env): Promise<Response> {
+// NOTE: 直接从 Worker 刷新 token 会被 AWS OIDC 拦截（Cloudflare Workers 出口 IP 被限制，返回 520）。
+// 改为触发 GitHub Actions 执行刷新，由 Actions 回调写入结果。
+// 原始直接刷新逻辑保留在 account-manager.ts 中供参考。
+
+async function handleKiroRefresh(target: string, _body: Record<string, unknown>, env: Env, request: Request): Promise<Response> {
   if (!target) return Res.error("MISSING_TARGET", "target required");
   const repo = new KvAccountRepository(env.KV);
   const account = await repo.get(target);
   if (!account) return Res.error("NOT_FOUND", "账号不存在", 404);
-  const result = await refreshSingleAccount(env, account);
-  return Res.json({ success: result.success, error: result.error });
+
+  const callbackUrl = new URL("/callback", request.url).toString();
+  const result = await triggerWorkflow(env, { action: "kiro_refresh", target, callbackUrl });
+  if (!result.ok) return Res.error("DISPATCH_FAILED", result.error || "failed", 502);
+  return Res.json({ success: true, message: "已触发刷新（GitHub Actions）", workflow: result.workflow });
 }
 
-async function handleKiroRefreshAll(_target: string, _body: Record<string, unknown>, env: Env): Promise<Response> {
-  const result = await refreshAllKiroAccounts(env);
-  return Res.json({ success: true, total: result.total, success_count: result.success, failed: result.failed, count: result.total });
+async function handleKiroRefreshAll(_target: string, _body: Record<string, unknown>, env: Env, request: Request): Promise<Response> {
+  const callbackUrl = new URL("/callback", request.url).toString();
+  const result = await triggerWorkflow(env, { action: "kiro_refresh_all", callbackUrl });
+  if (!result.ok) return Res.error("DISPATCH_FAILED", result.error || "failed", 502);
+  return Res.json({ success: true, message: "已触发全量刷新（GitHub Actions）", workflow: result.workflow });
 }
 
 async function handleRegisterKiroApi(_target: string, body: Record<string, unknown>, env: Env, request: Request): Promise<Response> {
