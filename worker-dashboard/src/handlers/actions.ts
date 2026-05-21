@@ -95,6 +95,7 @@ export async function apiTrigger(request: Request, env: Env): Promise<Response> 
 
   const action = (body.action as string) || url.searchParams.get("action") || "checkin";
   const target = (body.target as string) || url.searchParams.get("target") || "";
+  log.info("trigger_dispatch", { action, target });
 
   const localHandler = LOCAL_ACTIONS[action];
   if (localHandler) return localHandler(target, body, env, request);
