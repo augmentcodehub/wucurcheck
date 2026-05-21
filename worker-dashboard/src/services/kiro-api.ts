@@ -6,8 +6,9 @@ import { encode, decode } from "cborg";
 import { log } from "../lib/log.js";
 
 /** Custom CBOR tag decoders — tag 1 = epoch timestamp → ISO string */
-const TAGS: Record<number, (_value: unknown) => unknown> = {
-  1: (val: unknown) => {
+const TAGS: Record<number, (decode: () => unknown) => unknown> = {
+  1: (decode) => {
+    const val = decode();
     if (typeof val !== "number") return val;
     const ts = val > 1e12 ? val : val * 1000;
     return new Date(ts).toISOString();
