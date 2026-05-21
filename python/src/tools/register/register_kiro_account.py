@@ -398,6 +398,15 @@ async def _browser_register(
             await page.goto(register_url, wait_until='networkidle', timeout=60000)
             await page.wait_for_timeout(2000)
 
+            # Dismiss cookie consent if present
+            try:
+                cookie_btn = page.locator('button.awsccc-u-btn-primary').first
+                await cookie_btn.wait_for(state='visible', timeout=5000)
+                await cookie_btn.click()
+                await page.wait_for_timeout(1000)
+            except Exception:
+                pass  # No cookie banner, continue
+
             # Fill email
             if not await _wait_and_fill(page, 'input[placeholder="username@example.com"]', email):
                 return 'ERROR:Email input not found'
@@ -486,10 +495,21 @@ async def _handle_register_flow(page: Page, email_client: EmailClient, name: str
         return 'ERROR:Click verify button failed'
     await page.wait_for_timeout(3000)
 
-    if not await _wait_and_fill(page, 'input[placeholder="Enter password"]', password):
+    pwd_filled = False
+    for sel in ['input[placeholder="Enter password"]', 'input[placeholder="Password"]', 'input[type="password"]:first-of-type', 'input[name="password"]']:
+        if await _wait_and_fill(page, sel, password, timeout=10000):
+            pwd_filled = True
+            break
+    if not pwd_filled:
         return 'ERROR:Password input not found'
     await page.wait_for_timeout(500)
-    if not await _wait_and_fill(page, 'input[placeholder="Re-enter password"]', password):
+
+    confirm_filled = False
+    for sel in ['input[placeholder="Re-enter password"]', 'input[placeholder="Confirm password"]', 'input[type="password"]:nth-of-type(2)', 'input[name="confirmPassword"]']:
+        if await _wait_and_fill(page, sel, password, timeout=10000):
+            confirm_filled = True
+            break
+    if not confirm_filled:
         return 'ERROR:Confirm password input not found'
     await page.wait_for_timeout(1000)
 
@@ -502,7 +522,12 @@ async def _handle_register_flow(page: Page, email_client: EmailClient, name: str
 async def _handle_login_flow(page: Page, email_client: EmailClient, password: str, code_timeout: int, *, is_verify: bool = False) -> str | None:
     """Handle login flow (account already registered). Returns None on success, error string on failure."""
     if not is_verify:
-        if not await _wait_and_fill(page, 'input[placeholder="Enter password"]', password):
+        login_pwd = False
+        for sel in ['input[placeholder="Enter password"]', 'input[placeholder="Password"]', 'input[type="password"]', 'input[name="password"]']:
+            if await _wait_and_fill(page, sel, password, timeout=10000):
+                login_pwd = True
+                break
+        if not login_pwd:
             return 'ERROR:Login password input not found'
         await page.wait_for_timeout(1000)
         if not await _wait_and_click_with_retry(page, 'button[data-testid="test-primary-button"]'):
