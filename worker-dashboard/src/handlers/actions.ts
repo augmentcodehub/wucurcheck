@@ -3,6 +3,7 @@
 import { log } from "../lib/log.js";
 import { timingSafeEqual } from "../lib/crypto.js";
 import { triggerWorkflow } from "../services/github.js";
+import { triggerGitlabPipeline } from "../services/gitlab.js";
 import { acquireLock } from "../lib/trigger-lock.js";
 import { hasValidSession } from "../services/auth-service.js";
 import { KvAccountRepository } from "../repositories/kv-account-repository.js";
@@ -66,6 +67,47 @@ async function handleKiroRefreshAll(_target: string, _body: Record<string, unkno
   return Res.json({ success: true, total: result.total, success_count: result.success, failed: result.failed, count: result.total });
 }
 
+async function handleRegisterKiroApi(_target: string, body: Record<string, unknown>, env: Env, request: Request): Promise<Response> {
+  const callbackUrl = new URL("/callback", request.url).toString();
+  const inputs = (body.inputs as Record<string, string>) || {};
+  const count = parseInt(inputs.count || "1");
+  const platform = inputs.platform || "both"; // "github" | "gitlab" | "both"
+
+  // Read email API key from KV if not provided
+  if (!inputs.email_api_key) {
+    const key = await env.KV.get("config:email_api_key");
+    if (key) inputs.email_api_key = key;
+  }
+
+  const useGithub = platform === "github" || platform === "both";
+  const useGitlab = platform === "gitlab" || platform === "both";
+  const githubCount = useGithub ? (useGitlab ? Math.ceil(count / 2) : count) : 0;
+  const gitlabCount = useGitlab ? (useGithub ? count - githubCount : count) : 0;
+
+  const tasks: Promise<{ ok: boolean; error?: string }>[] = [];
+  if (useGithub) {
+    tasks.push(triggerWorkflow(env, { action: "register_kiro_api", callbackUrl, inputs: { ...inputs, count: String(githubCount) } }));
+  }
+  if (useGitlab) {
+    tasks.push(triggerGitlabPipeline(env, { callbackUrl, inputs: { ...inputs, count: String(gitlabCount) } }));
+  }
+
+  const results = await Promise.allSettled(tasks);
+  const outcomes = results.map((r) => r.status === "fulfilled" ? r.value : { ok: false, error: "rejected" });
+  const allFailed = outcomes.every((o) => !o.ok);
+
+  if (allFailed) {
+    return Res.error("DISPATCH_FAILED", outcomes.map((o) => o.error).join(", "), 502);
+  }
+
+  return Res.json({
+    success: true,
+    platform,
+    github: useGithub ? { ok: outcomes[0]!.ok, count: githubCount } : null,
+    gitlab: useGitlab ? { ok: outcomes[useGithub ? 1 : 0]!.ok, count: gitlabCount } : null,
+  });
+}
+
 type LocalHandler = (target: string, body: Record<string, unknown>, env: Env, request: Request) => Promise<Response>;
 
 const LOCAL_ACTIONS: Record<string, LocalHandler> = {
@@ -73,6 +115,7 @@ const LOCAL_ACTIONS: Record<string, LocalHandler> = {
   delete_all: handleDeleteAll,
   delete_failed: handleDeleteFailed,
   checkin_unchecked: handleCheckinUnchecked,
+  register_kiro_api: handleRegisterKiroApi,
   kiro_refresh: handleKiroRefresh,
   kiro_refresh_all: handleKiroRefreshAll,
 };

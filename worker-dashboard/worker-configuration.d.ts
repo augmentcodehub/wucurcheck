@@ -20,6 +20,8 @@ interface Env extends __BaseEnv_Env {
   // Runtime secrets (not in wrangler.toml, set via dashboard/wrangler secret)
   GITHUB_TOKEN?: string;
   WORKER_SECRET?: string;
+  GITLAB_PROJECT_ID?: string;
+  GITLAB_TRIGGER_TOKEN?: string;
 }
 declare module "*.mustache" {
 	const value: string;

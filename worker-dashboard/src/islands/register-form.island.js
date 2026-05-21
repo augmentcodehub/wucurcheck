@@ -34,16 +34,27 @@ async function doRegister(event) {
   } finally { btn.classList.remove("loading", "loading-spinner"); }
 }
 
+function onKiroMethodChange() {
+  const isBrowser = document.getElementById("kiro-method").value === "browser";
+  const gl = document.getElementById("kiro-use-gitlab");
+  gl.disabled = isBrowser;
+  if (isBrowser) { gl.checked = false; }
+}
+document.body.addEventListener("change", function(e) { if (e.target && e.target.id === "kiro-method") onKiroMethodChange(); });
+
 async function doRegisterKiro(event) {
   const btn = event.currentTarget;
+  const useGithub = document.getElementById("kiro-use-github").checked;
+  const useGitlab = document.getElementById("kiro-use-gitlab").checked;
+  if (!useGithub && !useGitlab) { showToast("❌ 至少选一个平台", false); return; }
   btn.classList.add("loading", "loading-spinner");
   const method = document.getElementById("kiro-method").value;
   const action = method === "api" ? "register_kiro_api" : "register_kiro";
-  const body = { action, inputs: { count: document.getElementById("kiro-count").value, email_domain: document.getElementById("kiro-domain").value, proxy: document.getElementById("kiro-proxy").value } };
+  const body = { action, inputs: { count: document.getElementById("kiro-count").value, email_domain: document.getElementById("kiro-domain").value, proxy: document.getElementById("kiro-proxy").value, platform: useGithub && useGitlab ? "both" : useGithub ? "github" : "gitlab" } };
   try {
     const r = await fetch("/api/trigger", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const d = await r.json();
     document.getElementById("register-kiro-modal").close();
-    showToast(d.success ? "✅ 已触发注册 " + body.inputs.count + " 个 Kiro 账号 (" + method + ")" : "❌ " + (d.error || d.error_code || "FAILED"), d.success);
+    showToast(d.success ? "✅ 已触发注册 " + body.inputs.count + " 个 Kiro 账号 (" + body.inputs.platform + ")" : "❌ " + (d.error || d.error_code || "FAILED"), d.success);
   } finally { btn.classList.remove("loading", "loading-spinner"); }
 }

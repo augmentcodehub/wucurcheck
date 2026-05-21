@@ -10,6 +10,7 @@ CALLBACK_SECRET = "test_secret"
 GITHUB_REPO = "augmentcodehub/wucurcheck"
 GITHUB_WORKFLOW = "checkin.yml"
 WORKER_URL = "https://worker-dashboard.ouraihub.workers.dev"
+GITLAB_PROJECT_ID = "82408215"
 
 [[kv_namespaces]]
 binding = "KV"
