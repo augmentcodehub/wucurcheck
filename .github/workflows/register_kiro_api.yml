@@ -1,0 +1,89 @@
+name: 注册 Kiro (纯 API)
+on:
+  workflow_dispatch:
+    inputs:
+      count:
+        description: '注册数量（默认1）'
+        required: false
+        default: '1'
+        type: string
+      email_domain:
+        description: '邮箱域名'
+        required: false
+        default: 'ouraihub.com'
+        type: string
+      proxy:
+        description: '代理地址（可选）'
+        required: false
+        default: ''
+        type: string
+      callback_url:
+        description: '回调地址（可选）'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: kiro-api-register
+      cancel-in-progress: false
+    environment: production
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: 'npm'
+        cache-dependency-path: node-register/package-lock.json
+
+    - name: 安装依赖
+      working-directory: node-register
+      run: npm ci
+
+    - name: 编译
+      working-directory: node-register
+      run: npm run build
+
+    - name: 下载 tls-client
+      working-directory: node-register
+      run: |
+        mkdir -p lib
+        wget -q -O lib/tls-client-linux-amd64.so \
+          "https://github.com/bogdanfinn/tls-client/releases/download/v1.7.9/tls-client-xgo-1.7.9-linux-amd64.so"
+        chmod +x lib/tls-client-linux-amd64.so
+
+    - name: 批量注册
+      id: register
+      env:
+        EMAIL_API_KEY: ${{ secrets.OURAIHUB_EMAIL_API_KEY }}
+      run: |
+        cd node-register
+        ARGS="--email-api-key $EMAIL_API_KEY --email-domain ${{ inputs.email_domain }} --count ${{ inputs.count }} --output ../artifacts/results.json"
+        if [ -n "${{ inputs.proxy }}" ]; then
+          ARGS="$ARGS --proxy ${{ inputs.proxy }}"
+        fi
+        mkdir -p ../artifacts
+        node dist/index.js $ARGS
+
+    - name: 上传结果
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: kiro-api-register-results
+        path: artifacts/
+
+    - name: 回调 Worker Dashboard
+      if: always()
+      env:
+        CALLBACK_URL: ${{ inputs.callback_url || secrets.WORKER_CALLBACK_URL }}
+        CALLBACK_SECRET: ${{ secrets.WORKER_CALLBACK_SECRET }}
+      run: |
+        if [ -z "$CALLBACK_URL" ]; then echo "跳过回调"; exit 0; fi
+        if [ ! -f artifacts/results.json ]; then echo "无结果文件"; exit 0; fi
+        BODY=$(jq -n --arg secret "$CALLBACK_SECRET" --slurpfile results artifacts/results.json \
+          '{secret: $secret, action: "batch_result", data: {results: $results[0]}}')
+        curl -s -X POST "$CALLBACK_URL" -H "Content-Type: application/json" -d "$BODY" && echo "回调成功" || echo "回调失败"
