@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html data-theme="light">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{title}} - Dashboard</title>
+<link href="https://cdn.jsdelivr.net/npm/daisyui@5" rel="stylesheet" type="text/css"/>
+<link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css"/>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+<script>var t=localStorage.getItem('theme');if(t){document.documentElement.setAttribute('data-theme',t);document.addEventListener('DOMContentLoaded',function(){var s=document.querySelector('.drawer-side select');if(s)s.value=t;});}</script>
+<div class="drawer lg:drawer-open">
+  <input id="drawer" type="checkbox" class="drawer-toggle"/>
+  <div class="drawer-content flex flex-col">
+    <!-- Navbar -->
+    <div class="navbar bg-base-100 border-b border-base-300 lg:hidden">
+      <label for="drawer" class="btn btn-ghost drawer-button">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </label>
+      <span class="text-lg font-bold ml-2">{{title}}</span>
+    </div>
+    <!-- Content -->
+    <main class="p-6 flex-1 bg-base-200 min-h-screen">
+      {{{content}}}
+    </main>
+  </div>
+  <!-- Sidebar -->
+  <div class="drawer-side">
+    <label for="drawer" class="drawer-overlay"></label>
+    <aside class="bg-base-100 w-64 min-h-screen border-r border-base-300 flex flex-col">
+      <div class="p-4 border-b border-base-300">
+        <h1 class="text-xl font-bold">⚡ Dashboard</h1>
+      </div>
+      <ul class="menu p-4 flex-1">
+        <li><a href="/" class="text-base">📊 账号管理</a></li>
+      </ul>
+      <div class="p-4 border-t border-base-300">
+        <select class="select select-xs w-full mb-2" onchange="document.documentElement.setAttribute('data-theme',this.value);localStorage.setItem('theme',this.value)">
+          {{#themes}}
+          <option value="{{.}}">{{.}}</option>
+          {{/themes}}
+        </select>
+        <a href="/logout" class="btn btn-ghost btn-sm w-full">退出登录</a>
+      </div>
+    </aside>
+  </div>
+</div>
+<div id="toast" class="toast toast-end hidden"><div class="alert" id="toast-msg"></div></div>
+<script>
+function showToast(msg, ok) {
+  const t = document.getElementById("toast"), m = document.getElementById("toast-msg");
+  m.textContent = msg; m.className = "alert " + (ok ? "alert-success" : "alert-error");
+  t.classList.remove("hidden"); setTimeout(() => t.classList.add("hidden"), 3000);
+}
+document.body.addEventListener("htmx:afterRequest", function(e) {
+  const xhr = e.detail.xhr;
+  if (!xhr || !xhr.responseText) return;
+  try {
+    const d = JSON.parse(xhr.responseText);
+    if (d.success !== undefined) showToast(d.success ? "✅ " + (d.message || "操作成功") : "❌ " + (d.error || d.error_code || "失败"), d.success);
+  } catch {}
+});
+document.body.addEventListener("htmx:beforeRequest", function(e) {
+  const btn = e.detail.elt; if (btn.tagName === "BUTTON") btn.classList.add("loading", "loading-spinner");
+});
+document.body.addEventListener("htmx:afterRequest", function(e) {
+  const btn = e.detail.elt; if (btn.tagName === "BUTTON") btn.classList.remove("loading", "loading-spinner");
+});
+</script>
+<script src="/static/islands/pagination.js"></script>
+<script src="/static/islands/bulk-actions.js"></script>
+<script src="/static/islands/register-form.js"></script>
+<script src="/static/islands/settings.js"></script>
+</body></html>

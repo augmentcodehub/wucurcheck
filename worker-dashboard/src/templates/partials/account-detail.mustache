@@ -1,0 +1,21 @@
+<div class="space-y-2 text-sm">
+  <div><span class="font-semibold">用户名：</span>{{username}}</div>
+  <div><span class="font-semibold">平台：</span>{{platform}}</div>
+  <div><span class="font-semibold">状态：</span>{{{statusBadge}}}</div>
+  <div><span class="font-semibold">余额：</span>{{balance}}</div>
+  <div><span class="font-semibold">签到时间：</span>{{checkinTime}}</div>
+  <div><span class="font-semibold">最近结果：</span>{{lastResult}}</div>
+  {{#ssoToken}}
+  <div><span class="font-semibold">SSO Token：</span><span class="break-all text-xs font-mono">{{ssoToken}}</span></div>
+  {{/ssoToken}}
+</div>
+{{#hasLogs}}
+<div class="mt-4">
+  <div class="divider text-xs">失败记录</div>
+  <div class="max-h-40 overflow-y-auto space-y-1 text-xs">
+    {{#logs}}
+    <div class="flex justify-between bg-error/10 rounded px-2 py-1"><span>{{date}}</span><span class="text-error truncate ml-2">{{reason}}</span></div>
+    {{/logs}}
+  </div>
+</div>
+{{/hasLogs}}

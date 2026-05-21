@@ -18,3 +18,8 @@ preview_id = "937c4aa1f8ea4c219117d44f13dbe9cc"
 
 [triggers]
 crons = ["0 * * * *", "*/30 * * * *"]
+
+[[rules]]
+type = "Text"
+globs = ["**/*.mustache", "**/*.island.js"]
+fallthrough = true

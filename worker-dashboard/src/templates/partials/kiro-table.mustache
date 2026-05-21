@@ -1,0 +1,34 @@
+<div class="flex justify-end mb-2 gap-2">
+  <a href="/api/export/kiro" class="btn btn-xs btn-outline btn-info">📥 导出 JSON</a>
+  <button type="button" class="btn btn-xs btn-outline btn-secondary" hx-post="/api/trigger" hx-vals='{"action":"kiro_refresh_all"}' hx-swap="none">🔄 批量刷新 Token</button>
+</div>
+<div class="overflow-x-auto bg-base-100 rounded-box shadow">
+<table class="table table-sm">
+  <thead><tr>
+    <th><input type="checkbox" class="checkbox checkbox-xs" onchange="toggleAll(this)"/></th>
+    <th>邮箱</th><th>密码</th><th>用量</th><th>订阅</th><th>剩余</th><th>刷新时间</th><th>状态</th><th>操作</th>
+  </tr></thead>
+  <tbody id="tbody-kiro">
+    {{#accounts}}
+    <tr>
+      <td><input type="checkbox" class="checkbox checkbox-xs row-check" value="{{username}}"/></td>
+      <td class="font-mono text-xs">{{username}}</td>
+      <td class="font-mono text-xs"><span class="cursor-pointer" onclick="if(this.textContent==='••••••'){this.textContent=this.dataset.p}else{this.textContent='••••••'}" data-p="{{password}}">••••••</span></td>
+      <td>{{{usageBadge}}}</td>
+      <td>{{{subBadge}}}</td>
+      <td class="text-xs">{{displayDays}}</td>
+      <td class="text-xs">{{displayRefresh}}</td>
+      <td>{{{statusBadge}}}</td>
+      <td class="flex gap-1">
+        <button type="button" class="btn btn-xs btn-ghost" hx-get="/api/account/{{username}}" hx-target="#detail-body" hx-swap="innerHTML" onclick="document.getElementById('account-detail').showModal()">详情</button>
+        <button type="button" class="btn btn-xs btn-secondary" hx-post="/api/trigger" hx-vals='{"action":"kiro_refresh","target":"{{username}}"}' hx-swap="none">刷新</button>
+      </td>
+    </tr>
+    {{/accounts}}
+    {{^accounts}}
+    <tr><td colspan="9" class="text-center py-8 text-base-content/50">暂无 Kiro 账号</td></tr>
+    {{/accounts}}
+  </tbody>
+</table>
+</div>
+<div class="flex justify-center mt-4 gap-1" id="tbody-kiro-pagination"></div>
