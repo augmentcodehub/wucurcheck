@@ -71,11 +71,8 @@ export default {
 
     const callbackUrl = `${env.WORKER_URL}/callback`;
 
-    // 1. 触发 checkin.yml（从 ANYROUTER_ACCOUNTS secret 读账号）
-    const r1 = await triggerWorkflow(env, { action: "checkin", target: "", callbackUrl });
-    log.info("cron_checkin_yml", { ok: r1.ok });
-
-    // 2. 触发 checkin_batch.yml（从 KV 读未签到账号）
+    // 触发 checkin_batch.yml（从 KV 读未签到 wucur 账号）
+    // 注：ANYROUTER_ACCOUNTS 的签到由 checkin.yml 自身 cron 独立管理
     const { listAccounts } = await import("./lib/store.js");
     const accounts = await listAccounts(env);
     const today = new Date().toDateString();
