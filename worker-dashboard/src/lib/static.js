@@ -6,6 +6,7 @@
  */
 
 import { log } from "./log.js";
+import { CONTENT_TYPE, TTL } from "./constants.js";
 import pagination from "../islands/pagination.island.js";
 import bulkActions from "../islands/bulk-actions.island.js";
 import registerForm from "../islands/register-form.island.js";
@@ -32,8 +33,8 @@ export function serveStatic(path) {
   }
   return new Response(content, {
     headers: {
-      "Content-Type": "application/javascript; charset=utf-8",
-      "Cache-Control": "public, max-age=3600",
+      "Content-Type": CONTENT_TYPE.JS,
+      "Cache-Control": `public, max-age=${TTL.STATIC_CACHE}`,
     },
   });
 }
