@@ -7,8 +7,9 @@
 <link href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css" rel="stylesheet" type="text/css"/>
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+<script src="https://unpkg.com/htmx-ext-json-enc@2.0.1/json-enc.js"></script>
 </head>
-<body>
+<body hx-ext="json-enc">
 <script>var t=localStorage.getItem('theme');if(t){document.documentElement.setAttribute('data-theme',t);document.addEventListener('DOMContentLoaded',function(){var s=document.querySelector('.drawer-side select');if(s)s.value=t;});}</script>
 <div class="drawer lg:drawer-open">
   <input id="drawer" type="checkbox" class="drawer-toggle"/>
