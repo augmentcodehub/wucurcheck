@@ -42,9 +42,11 @@ export class KvAccountRepository implements AccountRepository {
 
     const existing = (await this.get(username)) ?? ({} as Partial<Account>);
     const now = new Date().toISOString();
+    // Filter out undefined values to avoid overwriting existing data
+    const clean = Object.fromEntries(Object.entries(data).filter(([, v]) => v !== undefined));
     const merged: Account = {
       ...existing,
-      ...data,
+      ...clean,
       username,
       updated_at: now,
       created_at: existing.created_at ?? now,
