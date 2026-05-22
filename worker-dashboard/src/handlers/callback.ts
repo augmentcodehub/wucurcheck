@@ -47,6 +47,10 @@ async function handleCheckin(data: Record<string, unknown>, env: Env): Promise<v
   await releaseLock(env, "checkin:_all");
 }
 
+function detectPlatform(email: string): "kiro" | "wucur" {
+  return email.includes("ouraihub.com") ? "kiro" : "wucur";
+}
+
 async function handleBatchResult(data: Record<string, unknown>, env: Env): Promise<void> {
   const raw = data.results;
   const items = Array.isArray(raw) ? raw : [raw];
@@ -61,7 +65,7 @@ async function handleBatchResult(data: Record<string, unknown>, env: Env): Promi
     await repo.put(username, {
       username,
       password: str(item.password),
-      platform: isPlatform(item.platform) ? item.platform : "kiro",
+      platform: isPlatform(item.platform) ? item.platform : detectPlatform(username),
       status: isStatus(item.status) ? item.status : "active",
       last_result: str(item.last_result) || str(item.error) || str(item.message) || "批量结果更新",
       refresh_token: str(item.refreshToken) || str(item.refresh_token),
