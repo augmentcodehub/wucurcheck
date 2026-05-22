@@ -31,6 +31,7 @@ export async function apiAccountDetail(request: Request, env: Env): Promise<Resp
     balance: account.balance ?? "-",
     checkinTime: account.checkin_time ? timeAgo(account.checkin_time) : "-",
     lastResult: account.last_result || "-",
+    createdAt: account.created_at ? timeAgo(account.created_at) : "-",
     ssoToken: account.sso_token || null,
     hasLogs: logs.length > 0,
     logs,
