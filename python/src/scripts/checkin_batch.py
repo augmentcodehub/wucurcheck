@@ -101,8 +101,14 @@ def run():
         results.append(result)
 
         if i < len(accounts) - 1:
-            delay = random.randint(10, 20)
-            time.sleep(delay)
+            # 每 15 个账号暂停 2 分钟，避免触发限流
+            if (i + 1) % 15 == 0:
+                pause = 120
+                log.info("Batch pause", extra={"completed": i + 1, "pause_sec": pause})
+                time.sleep(pause)
+            else:
+                delay = random.randint(15, 30)
+                time.sleep(delay)
 
     RESULTS_FILE.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
     success = sum(1 for r in results if r["status"] == "active")
