@@ -1,0 +1,39 @@
+name: 刷新 Kiro Token
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: '目标账号（空=全部）'
+        required: false
+        default: ''
+        type: string
+      callback_url:
+        description: '回调地址'
+        required: false
+        default: ''
+        type: string
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: production
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: 安装依赖
+      run: pip install httpx
+
+    - name: 刷新 Token
+      env:
+        CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+        KV_NAMESPACE_ID: ${{ secrets.KV_NAMESPACE_ID }}
+        CALLBACK_URL: ${{ inputs.callback_url || secrets.WORKER_CALLBACK_URL }}
+        CALLBACK_SECRET: ${{ secrets.WORKER_CALLBACK_SECRET }}
+        TARGET: ${{ inputs.target }}
+      run: python python/src/scripts/kiro_refresh.py
