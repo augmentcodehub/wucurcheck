@@ -68,6 +68,8 @@ async function handleBatchResult(data: Record<string, unknown>, env: Env): Promi
       platform: isPlatform(item.platform) ? item.platform : detectPlatform(username),
       status: isStatus(item.status) ? item.status : "active",
       last_result: str(item.last_result) || str(item.error) || str(item.message) || "批量结果更新",
+      checkin_time: str(item.checkin_time),
+      balance: str(item.balance),
       refresh_token: str(item.refreshToken) || str(item.refresh_token),
       access_token: str(item.accessToken) || str(item.access_token),
       client_id: str(item.clientId) || str(item.client_id),
