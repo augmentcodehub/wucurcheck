@@ -97,7 +97,7 @@ async function handleRegisterKiroApi(_target: string, body: Record<string, unkno
     tasks.push(triggerWorkflow(env, { action: "register_kiro_api", callbackUrl, inputs: { ...inputs, count: String(githubCount) } }));
   }
   if (useGitlab) {
-    tasks.push(triggerGitlabPipeline(env, { callbackUrl, inputs: { ...inputs, count: String(gitlabCount) } }));
+    tasks.push(triggerGitlabPipeline(env, { action: "register_kiro_api", callbackUrl, inputs: { ...inputs, count: String(gitlabCount) } }));
   }
 
   const results = await Promise.allSettled(tasks);

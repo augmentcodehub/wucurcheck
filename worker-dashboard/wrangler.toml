@@ -1,6 +1,7 @@
 name = "worker-dashboard"
 main = "src/index.ts"
 compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
 account_id = "34d0f0b38fb6c0bd4d3a8f76b1164b2e"
 
 [vars]

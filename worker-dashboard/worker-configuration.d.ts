@@ -23,6 +23,12 @@ interface Env extends __BaseEnv_Env {
   GITLAB_PROJECT_ID?: string;
   GITLAB_TRIGGER_TOKEN?: string;
 }
+declare module "node:async_hooks" {
+	export class AsyncLocalStorage<T> {
+		getStore(): T | undefined;
+		run<R>(store: T, fn: () => R): R;
+	}
+}
 declare module "*.mustache" {
 	const value: string;
 	export default value;

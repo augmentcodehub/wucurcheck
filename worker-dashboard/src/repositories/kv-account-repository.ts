@@ -10,12 +10,22 @@ export class KvAccountRepository implements AccountRepository {
   constructor(private readonly kv: KVNamespace) {}
 
   async list(): Promise<Account[]> {
-    const { keys, list_complete } = await this.kv.list({ prefix: KV_PREFIX.ACCOUNT });
-    if (!list_complete) log.warn("kv_list_truncated", { count: keys.length });
+    const allKeys: KVNamespaceListKey<unknown>[] = [];
+    let cursor: string | undefined;
+    do {
+      const result = await this.kv.list({ prefix: KV_PREFIX.ACCOUNT, cursor });
+      allKeys.push(...result.keys);
+      cursor = result.list_complete ? undefined : result.cursor;
+    } while (cursor);
 
-    const values = await Promise.all(
-      keys.map((k) => this.kv.get<Account>(k.name, "json"))
-    );
+    const BATCH = 6;
+    const values: (Account | null)[] = [];
+    for (let i = 0; i < allKeys.length; i += BATCH) {
+      const batch = await Promise.all(
+        allKeys.slice(i, i + BATCH).map((k) => this.kv.get<Account>(k.name, "json"))
+      );
+      values.push(...batch);
+    }
     return values.filter((v): v is Account => v !== null);
   }
 
