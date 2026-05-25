@@ -75,7 +75,7 @@ def run():
 
                         info = get_user_info(client, headers, user_info_url)
                         if info.get("success"):
-                            result["balance"] = str(info.get("quota", 0))
+                            result["balance"] = f"{info.get('quota', 0)/500000:.2f}"
 
                         log.info("Checkin success", extra={"username": username, "quota": quota})
                     else:
@@ -86,7 +86,7 @@ def run():
                             result["checkin_time"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                             info = get_user_info(client, headers, user_info_url)
                             if info.get("success"):
-                                result["balance"] = str(info.get("quota", 0))
+                                result["balance"] = f"{info.get('quota', 0)/500000:.2f}"
                             log.info("Already checked in", extra={"username": username})
                         else:
                             result["last_result"] = f"签到失败: {msg}"
