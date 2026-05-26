@@ -24,12 +24,17 @@ export async function apiAccountDetail(request: Request, env: Env): Promise<Resp
   }
 
   const logs = await failLogs.query(account.username);
+  const checkedToday = account.checkin_time
+    ? new Date(account.checkin_time).toDateString() === new Date().toDateString()
+    : false;
+
   const html = Mustache.render(accountDetailTemplate, {
     username: esc(account.username),
     platform: account.platform || "-",
     statusBadge: badge(account.status),
     balance: account.balance ?? "-",
     checkinTime: account.checkin_time ? timeAgo(account.checkin_time) : "-",
+    checkinStatus: checkedToday ? "✅ 今日已签到" : "❌ 今日未签到",
     lastResult: account.last_result || "-",
     createdAt: account.created_at ? timeAgo(account.created_at) : "-",
     ssoToken: account.sso_token || null,
