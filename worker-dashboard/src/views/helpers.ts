@@ -22,11 +22,10 @@ export function isToday(ts: string | undefined): boolean {
 export function timeAgo(ts: string | undefined): string {
   if (!ts) return "-";
   const d = new Date(ts);
-  const now = new Date();
-  const diff = Math.floor((now.getTime() - d.getTime()) / 60000);
-  if (diff < 60) return `${diff}分钟前`;
-  if (diff < 1440) return `${Math.floor(diff / 60)}小时前`;
-  return d.toLocaleDateString("zh-CN");
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const h = String(d.getHours()).padStart(2, "0");
+  return `${m}/${day} ${h}时`;
 }
 
 export function esc(s: string | undefined | null): string {
