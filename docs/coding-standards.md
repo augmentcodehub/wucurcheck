@@ -1,120 +1,39 @@
-# 编码规范 — 防止重复犯错
+# 编码规范
 
-## 1. 数据转换：单一职责，不重复转换
+## 核心原则
 
-**规则**：每个数据转换只在一个地方做。调用方必须了解函数返回值的单位/格式。
+### 1. 函数只做一件事
 
-**反例**：
-```python
-# get_user_info 内部已经做了 quota / 500000
-info = get_user_info(...)
-balance = info.get('quota', 0) / 500000  # ❌ 重复转换
-```
+一个函数要么做计算，要么做 IO，不要混在一起。
 
-**正例**：
-```python
-info = get_user_info(...)  # 返回值 quota 已是美元 float
-balance = str(info.get('quota', 0))  # ✅ 直接使用
-```
+- 计算/转换逻辑 → 纯函数，无副作用，可单独测试
+- IO/编排逻辑 → 调用纯函数，组织流程
 
-**执行方式**：
-- 函数 docstring 必须标注返回值的单位/格式
-- 涉及单位转换的函数必须有单元测试
+违反信号：函数超过 20 行、需要 mock 才能测试、改一行影响多个行为。
 
----
+### 2. 先写测试，再写实现
 
-## 2. 字段映射：声明式，不手写
+任何包含逻辑判断或数据转换的代码，必须有对应的单元测试。
 
-**规则**：外部数据写入内部模型时，用映射表自动转换，不逐字段手写。
+- 新功能：先写测试描述期望行为，再实现
+- 改 bug：先写失败的测试复现 bug，再修复
+- 重构：确认测试通过后再改
 
-**反例**：
-```typescript
-// 每加一个字段就要手动加一行，容易遗漏
-await repo.put(username, {
-  refresh_token: str(item.refreshToken),
-  access_token: str(item.accessToken),
-  // 忘了 checkin_time...
-});
-```
+### 3. 函数契约明确
 
-**正例**：
-```typescript
-const FIELD_ALIASES = { refreshToken: "refresh_token", ... };
-const fields = toAccountFields(input);  // 自动映射所有字段
-await repo.put(username, fields);
-```
+函数的输入输出必须通过类型和文档明确约定，调用方不需要看实现就能正确使用。
 
-**执行方式**：
-- 新增 Account 字段时，只需更新 `FIELD_ALIASES` 或 `STRING_FIELDS`
-- 所有 handler 共用同一个 `toAccountFields()`
+- 返回值的单位、格式、边界情况写在 docstring 或类型里
+- 不依赖调用方"知道内部实现"才能正确使用
 
----
+### 4. 声明式优于命令式
 
-## 3. 纯函数优先：可测试 > 方便
+用数据结构描述映射关系，不用代码逐条处理。
 
-**规则**：数据转换逻辑必须提取为纯函数（无 IO、无副作用），方便单元测试。
+- 字段映射用映射表，不逐行手写
+- 配置用常量集合，不散落在逻辑里
+- 新增字段只需改声明，不需要改逻辑
 
-**反例**：
-```python
-def run():
-    # 100 行函数：文件读取 + HTTP + 数据转换 + 重试 + 延时
-    ...
-    result["balance"] = str(info.get("quota", 0) / 500000)  # 埋在深处，无法单独测试
-```
+### 5. 不可测试 = 设计有问题
 
-**正例**：
-```python
-def format_balance(info: dict) -> str:
-    """info['quota'] 已是美元 float。"""
-    return str(info.get("quota", 0))
-
-def run():
-    ...
-    result["balance"] = format_balance(info)  # 调用纯函数
-```
-
-**执行方式**：
-- 任何数据转换逻辑都必须有对应的单元测试
-- 测试必须包含回归用例（防止"重复转换"类 bug）
-
----
-
-## 4. 写入不覆盖：undefined/空值不写入
-
-**规则**：更新记录时，`undefined`/`null`/空字符串不应覆盖已有数据。
-
-**反例**：
-```typescript
-const merged = { ...existing, ...data };  // ❌ data 中的 undefined 会覆盖
-```
-
-**正例**：
-```typescript
-const clean = Object.fromEntries(
-  Object.entries(data).filter(([, v]) => v !== undefined)
-);
-const merged = { ...existing, ...clean };  // ✅ 只写有值的字段
-```
-
----
-
-## 5. 改动前先写测试
-
-**规则**：修改数据转换/格式化逻辑前，先写（或确认已有）覆盖该路径的测试。改完跑测试验证。
-
-**流程**：
-1. 写测试描述期望行为
-2. 确认测试通过（当前行为正确）或失败（确认 bug）
-3. 改代码
-4. 跑测试验证
-
----
-
-## 6. 手动操作后验证
-
-**规则**：手动回写数据到 KV/DB 后，必须读回验证格式正确。
-
-```bash
-# 写入后立即验证
-curl -s ... | python3 -c "..."  # 确认字段值符合预期格式
-```
+如果一段代码不好写单元测试，说明职责没分清。正确的做法是拆分，直到每个部分都能独立测试。
