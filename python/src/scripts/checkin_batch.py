@@ -20,6 +20,43 @@ MAX_RETRIES = 2
 RETRY_WAIT = 30
 
 
+def format_balance(info: dict) -> str:
+    """从 get_user_info 返回值中提取余额字符串。info['quota'] 已是美元 float。"""
+    return str(info.get("quota", 0))
+
+
+def format_quota_awarded(quota_raw: int) -> str:
+    """将签到奖励的原始 quota 转为美元显示。"""
+    return f"+${quota_raw / 500000:.2f}"
+
+
+def build_checkin_result(username: str, checkin_resp: dict, info: dict | None) -> dict:
+    """根据签到响应和用户信息构建结果字典。"""
+    quota = checkin_resp.get("data", {}).get("quota_awarded", 0)
+    result = {
+        "username": username,
+        "status": "active",
+        "last_result": f"签到成功 {format_quota_awarded(quota)}",
+        "checkin_time": checkin_resp.get("data", {}).get("checkin_date", ""),
+    }
+    if info and info.get("success"):
+        result["balance"] = format_balance(info)
+    return result
+
+
+def build_already_checked_result(username: str, info: dict | None) -> dict:
+    """构建'今日已签到'结果。"""
+    result = {
+        "username": username,
+        "status": "active",
+        "last_result": "今日已签到",
+        "checkin_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+    }
+    if info and info.get("success"):
+        result["balance"] = format_balance(info)
+    return result
+
+
 def run():
     if not ACCOUNTS_FILE.exists():
         log.error("No accounts file found", extra={"path": str(ACCOUNTS_FILE)})
@@ -68,25 +105,14 @@ def run():
 
                     checkin_resp = checkin_account(client, headers, sign_in_url)
                     if checkin_resp.get("success"):
-                        quota = checkin_resp.get("data", {}).get("quota_awarded", 0)
-                        result["status"] = "active"
-                        result["last_result"] = f"签到成功 +${quota/500000:.2f}"
-                        result["checkin_time"] = checkin_resp.get("data", {}).get("checkin_date", "")
-
                         info = get_user_info(client, headers, user_info_url)
-                        if info.get("success"):
-                            result["balance"] = str(info.get('quota', 0))
-
-                        log.info("Checkin success", extra={"username": username, "quota": quota})
+                        result = build_checkin_result(username, checkin_resp, info)
+                        log.info("Checkin success", extra={"username": username})
                     else:
                         msg = checkin_resp.get('message', '')
                         if '已签到' in msg or '已经签到' in msg or 'already' in msg.lower():
-                            result["status"] = "active"
-                            result["last_result"] = "今日已签到"
-                            result["checkin_time"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
                             info = get_user_info(client, headers, user_info_url)
-                            if info.get("success"):
-                                result["balance"] = str(info.get('quota', 0))
+                            result = build_already_checked_result(username, info)
                             log.info("Already checked in", extra={"username": username})
                         else:
                             result["last_result"] = f"签到失败: {msg}"
