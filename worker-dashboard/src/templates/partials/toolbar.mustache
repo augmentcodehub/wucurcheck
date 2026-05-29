@@ -1,12 +1,5 @@
 <div class="flex items-center justify-between mb-4">
-  <div class="flex items-center gap-3">
-    <h2 class="text-2xl font-bold">账号管理</h2>
-    <select class="select select-sm select-bordered" onchange="filterByStatus(this.value)">
-      <option value="">全部状态</option>
-      <option value="active">✅ 正常</option>
-      <option value="failed">❌ 失败</option>
-    </select>
-  </div>
+  <h2 class="text-2xl font-bold">账号管理</h2>
   <div class="flex gap-2 flex-wrap justify-end">
     <button type="button" class="btn btn-success btn-sm" onclick="document.getElementById('register-modal').showModal()">➕ 批量注册</button>
     <button type="button" class="btn btn-info btn-sm" onclick="document.getElementById('register-kiro-modal').showModal()">🚀 注册 Kiro</button>
