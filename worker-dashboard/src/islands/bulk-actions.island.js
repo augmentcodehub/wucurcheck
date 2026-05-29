@@ -19,14 +19,31 @@ async function batchDel(action) {
   else showToast("❌ 失败", false);
 }
 
-/** Filter table rows by status badge text */
+/** Filter table rows by status — fetch from API and re-render */
 function filterByStatus(status) {
-  var rows = document.querySelectorAll("#tbody-wucur tr");
-  for (var i = 0; i < rows.length; i++) {
-    var row = rows[i];
-    if (!status) { row.style.display = ""; continue; }
-    var badge = row.querySelector(".badge");
-    var text = badge ? badge.textContent.trim() : "";
-    row.style.display = (text === status) ? "" : "none";
-  }
+  fetch("/api/accounts")
+    .then(function(r) { return r.json(); })
+    .then(function(accounts) {
+      var filtered = status ? accounts.filter(function(a) { return a.status === status; }) : accounts;
+      filtered = filtered.filter(function(a) { return !a.platform || a.platform === "wucur"; });
+      var tbody = document.getElementById("tbody-wucur");
+      if (!tbody) return;
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-base-content/50">无匹配账号</td></tr>';
+        return;
+      }
+      tbody.innerHTML = filtered.map(function(a) {
+        var statusCls = a.status === "active" ? "badge-success" : a.status === "failed" ? "badge-error" : "badge-ghost";
+        var time = a.checkin_time ? new Date(a.checkin_time).toLocaleDateString("zh-CN", {month:"2-digit",day:"2-digit",hour:"2-digit"}).replace("/", "/") : "-";
+        return '<tr>' +
+          '<td><input type="checkbox" class="checkbox checkbox-xs row-check" value="' + a.username + '"/></td>' +
+          '<td class="font-mono">' + a.username + '</td>' +
+          '<td class="font-mono text-xs"><span class="inline-flex items-center gap-1"><span class="pwd-mask" data-p="' + (a.password||"") + '">••••••</span><button type="button" class="btn btn-ghost btn-xs px-1" onclick="togglePwd(this)">👁</button><button type="button" class="btn btn-ghost btn-xs px-1" onclick="copyPwd(this)">📋</button></span></td>' +
+          '<td>' + (a.balance || "-") + '</td>' +
+          '<td>' + time + '</td>' +
+          '<td><span class="badge badge-sm ' + statusCls + '">' + a.status + '</span></td>' +
+          '<td class="flex gap-1"><button type="button" class="btn btn-xs btn-ghost" hx-get="/api/account/' + a.username + '" hx-target="#detail-body" hx-swap="innerHTML" onclick="document.getElementById(\'account-detail\').showModal()">详情</button><button type="button" class="btn btn-xs btn-primary" hx-post="/api/trigger" hx-vals=\'{"action":"checkin","target":"' + a.username + '"}\' hx-swap="none">签到</button></td>' +
+          '</tr>';
+      }).join("");
+    });
 }
