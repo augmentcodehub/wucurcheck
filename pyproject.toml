@@ -28,7 +28,7 @@ py-modules = ["checkin"]
 
 [tool.setuptools.packages.find]
 where = ["python/src"]
-include = ["adapters*", "cli*", "core*", "scripts*", "tools*", "utils*", "wucur_cli*"]
+include = ["adapters*", "cli*", "core*", "lib*", "pipelines*", "providers*", "scripts*", "tools*", "utils*", "wucur_cli*"]
 
 [dependency-groups]
 dev = [

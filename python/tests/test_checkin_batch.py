@@ -1,92 +1,84 @@
-"""Unit tests for checkin_batch core functions."""
+"""Unit tests for checkin pipeline and batch script."""
 import sys
 from pathlib import Path
+from unittest.mock import patch, MagicMock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from scripts.checkin_batch import format_balance, format_quota_awarded, build_checkin_result, build_already_checked_result
+
+from core.result import Result
+from pipelines.checkin import CheckinPipeline
+from lib.constants import QUOTA_UNIT_DIVISOR
 
 
-class TestFormatBalance:
-    """get_user_info returns quota already in dollar float format."""
+class TestResult:
+    def test_ok(self):
+        r = Result.ok({"key": "val"}, message="done")
+        assert r.success is True
+        assert r.data == {"key": "val"}
+        assert r.message == "done"
 
-    def test_normal_balance(self):
-        assert format_balance({"success": True, "quota": 9.24}) == "9.24"
-
-    def test_zero_balance(self):
-        assert format_balance({"success": True, "quota": 0}) == "0"
-
-    def test_missing_quota_defaults_zero(self):
-        assert format_balance({"success": True}) == "0"
-
-    def test_does_not_divide_by_500000(self):
-        """Regression: get_user_info already converts, must NOT divide again."""
-        result = format_balance({"success": True, "quota": 9.24})
-        assert result == "9.24"
-        assert float(result) > 1  # if divided again would be ~0.00
+    def test_fail(self):
+        r = Result.fail("error msg")
+        assert r.success is False
+        assert r.message == "error msg"
 
 
-class TestFormatQuotaAwarded:
-    """quota_awarded from checkin API is raw integer, needs /500000."""
+class TestCheckinPipeline:
+    def test_unknown_provider(self):
+        pipeline = CheckinPipeline()
+        result = pipeline.execute("user@test.com", "pass", provider_name="nonexistent")
+        assert result.success is False
+        assert "未知 provider" in result.message
 
-    def test_one_dollar(self):
-        assert format_quota_awarded(500000) == "+$1.00"
+    @patch("pipelines.checkin.get_provider")
+    def test_login_failure(self, mock_get_provider):
+        provider = MagicMock()
+        provider.login.return_value = Result.fail("Invalid parameters")
+        mock_get_provider.return_value = provider
 
-    def test_half_dollar(self):
-        assert format_quota_awarded(250000) == "+$0.50"
+        pipeline = CheckinPipeline()
+        result = pipeline.execute("user@test.com", "")
+        assert result.success is False
+        assert "登录失败" in result.message
 
-    def test_real_value(self):
-        assert format_quota_awarded(647767) == "+$1.30"
+    @patch("pipelines.checkin.get_provider")
+    def test_checkin_success(self, mock_get_provider):
+        provider = MagicMock()
+        provider.login.return_value = Result.ok({"user_id": "123"})
+        provider.build_auth_headers.return_value = {"User-Agent": "test"}
+        provider.checkin.return_value = Result.ok({"data": {}}, message="签到成功 +$1.00")
+        provider.get_balance.return_value = Result.ok({"quota": 9.24, "used": 1.0})
+        mock_get_provider.return_value = provider
 
-    def test_zero(self):
-        assert format_quota_awarded(0) == "+$0.00"
+        pipeline = CheckinPipeline()
+        result = pipeline.execute("user@test.com", "pass123")
+        assert result.success is True
+        assert result.message == "签到成功 +$1.00"
+        assert result.data["balance"] == "9.24"
 
+    @patch("pipelines.checkin.get_provider")
+    def test_already_checked_in(self, mock_get_provider):
+        provider = MagicMock()
+        provider.login.return_value = Result.ok({"user_id": "123"})
+        provider.build_auth_headers.return_value = {}
+        provider.checkin.return_value = Result.ok({}, message="今日已签到")
+        provider.get_balance.return_value = Result.ok({"quota": 8.42, "used": 0.5})
+        mock_get_provider.return_value = provider
 
-class TestBuildCheckinResult:
-    def test_success_with_balance(self):
-        checkin_resp = {"data": {"quota_awarded": 500000, "checkin_date": "2026-05-27"}}
-        info = {"success": True, "quota": 9.24}
-
-        result = build_checkin_result("test@qq.com", checkin_resp, info)
-
-        assert result["username"] == "test@qq.com"
-        assert result["status"] == "active"
-        assert "+$1.00" in result["last_result"]
-        assert result["checkin_time"] == "2026-05-27"
-        assert result["balance"] == "9.24"
-
-    def test_success_without_info(self):
-        checkin_resp = {"data": {"quota_awarded": 300000, "checkin_date": "2026-05-27"}}
-
-        result = build_checkin_result("test@qq.com", checkin_resp, None)
-
-        assert result["status"] == "active"
-        assert "balance" not in result
-
-    def test_info_request_failed(self):
-        checkin_resp = {"data": {"quota_awarded": 300000, "checkin_date": "2026-05-27"}}
-        info = {"success": False, "error": "timeout"}
-
-        result = build_checkin_result("test@qq.com", checkin_resp, info)
-
-        assert "balance" not in result
-        assert result["status"] == "active"
+        pipeline = CheckinPipeline()
+        result = pipeline.execute("user@test.com", "pass123")
+        assert result.success is True
+        assert result.message == "今日已签到"
+        assert result.data["balance"] == "8.42"
 
 
-class TestBuildAlreadyCheckedResult:
-    def test_with_balance(self):
-        info = {"success": True, "quota": 11.11}
+class TestQuotaDivisor:
+    """Verify the constant is correct."""
 
-        result = build_already_checked_result("test@qq.com", info)
+    def test_value(self):
+        assert QUOTA_UNIT_DIVISOR == 500_000
 
-        assert result["username"] == "test@qq.com"
-        assert result["status"] == "active"
-        assert result["last_result"] == "今日已签到"
-        assert result["balance"] == "11.11"
-        assert "T" in result["checkin_time"]
-
-    def test_without_info(self):
-        result = build_already_checked_result("test@qq.com", None)
-
-        assert result["status"] == "active"
-        assert "balance" not in result
-        assert result["last_result"] == "今日已签到"
+    def test_conversion(self):
+        raw = 4621350
+        dollar = round(raw / QUOTA_UNIT_DIVISOR, 2)
+        assert dollar == 9.24

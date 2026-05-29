@@ -1,4 +1,4 @@
-"""Batch checkin: read accounts from JSON, checkin one by one with delay."""
+"""Batch checkin: read accounts from JSON, checkin one by one via Pipeline."""
 import json
 import random
 import sys
@@ -7,54 +7,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from adapters.http.wucur_client import login_account, checkin_account, get_user_info
-from core.provider_profile import ProviderProfileResolver
+from pipelines.checkin import CheckinPipeline
 from utils.logger import get_logger
-import httpx
 
 log = get_logger("scripts.checkin_batch")
 
 ACCOUNTS_FILE = Path("artifacts/checkin_accounts.json")
 RESULTS_FILE = Path("artifacts/checkin_results.json")
-MAX_RETRIES = 2
-RETRY_WAIT = 30
-
-
-def format_balance(info: dict) -> str:
-    """从 get_user_info 返回值中提取余额字符串。info['quota'] 已是美元 float。"""
-    return str(info.get("quota", 0))
-
-
-def format_quota_awarded(quota_raw: int) -> str:
-    """将签到奖励的原始 quota 转为美元显示。"""
-    return f"+${quota_raw / 500000:.2f}"
-
-
-def build_checkin_result(username: str, checkin_resp: dict, info: dict | None) -> dict:
-    """根据签到响应和用户信息构建结果字典。"""
-    quota = checkin_resp.get("data", {}).get("quota_awarded", 0)
-    result = {
-        "username": username,
-        "status": "active",
-        "last_result": f"签到成功 {format_quota_awarded(quota)}",
-        "checkin_time": checkin_resp.get("data", {}).get("checkin_date", ""),
-    }
-    if info and info.get("success"):
-        result["balance"] = format_balance(info)
-    return result
-
-
-def build_already_checked_result(username: str, info: dict | None) -> dict:
-    """构建'今日已签到'结果。"""
-    result = {
-        "username": username,
-        "status": "active",
-        "last_result": "今日已签到",
-        "checkin_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-    }
-    if info and info.get("success"):
-        result["balance"] = format_balance(info)
-    return result
 
 
 def run():
@@ -65,77 +24,30 @@ def run():
     accounts = json.loads(ACCOUNTS_FILE.read_text(encoding="utf-8"))
     log.info("Batch checkin started", extra={"count": len(accounts)})
 
-    resolver = ProviderProfileResolver()
-    profile = resolver.resolve("wucur")
-    domain = profile.domain
-    sign_in_url = f"{domain}{profile.sign_in_path}"
-    user_info_url = f"{domain}{profile.user_info_path}"
-
+    pipeline = CheckinPipeline()
     results = []
 
     for i, acct in enumerate(accounts):
         username = acct.get("username", "")
         password = acct.get("password", "")
+        log.info("Processing", extra={"username": username, "has_password": bool(password)})
 
-        result = {"username": username, "status": "failed", "last_result": "签到失败"}
-
-        for attempt in range(1, MAX_RETRIES + 2):
-            with httpx.Client(http2=True, timeout=30.0) as client:
-                try:
-                    log.info("Login attempt", extra={"username": username, "has_password": bool(password), "attempt": attempt})
-                    login_resp = login_account(client, username, password)
-                    if not login_resp.get("success"):
-                        msg = login_resp.get("message", "")
-                        log.warning("Login failed", extra={"username": username, "reason": msg, "has_password": bool(password)})
-                        # 429 rate limit — retry after wait
-                        if "429" in msg or "rate" in msg.lower():
-                            if attempt <= MAX_RETRIES:
-                                log.warning("Rate limited, retrying", extra={"username": username, "attempt": attempt, "wait": RETRY_WAIT})
-                                time.sleep(RETRY_WAIT)
-                                continue
-                        result["last_result"] = f"登录失败: {msg}"
-                        # Don't mark as failed for transient errors — keep active so next cron retries
-                        if "429" in msg:
-                            result["status"] = "active"
-                        break
-
-                    user_id = str(login_resp.get("data", {}).get("id", ""))
-                    headers = {}
-                    if profile.api_user_key and user_id:
-                        headers[profile.api_user_key] = user_id
-
-                    checkin_resp = checkin_account(client, headers, sign_in_url)
-                    if checkin_resp.get("success"):
-                        info = get_user_info(client, headers, user_info_url)
-                        result = build_checkin_result(username, checkin_resp, info)
-                        log.info("Checkin success", extra={"username": username})
-                    else:
-                        msg = checkin_resp.get('message', '')
-                        if '已签到' in msg or '已经签到' in msg or 'already' in msg.lower():
-                            info = get_user_info(client, headers, user_info_url)
-                            result = build_already_checked_result(username, info)
-                            log.info("Already checked in", extra={"username": username})
-                        else:
-                            result["last_result"] = f"签到失败: {msg}"
-                            log.warning("Checkin failed", extra={"username": username, "reason": msg})
-                    break
-
-                except Exception as e:
-                    result["last_result"] = f"异常: {str(e)[:100]}"
-                    log.error("Checkin exception", extra={"username": username, "error": str(e)[:100]})
-                    break
-
-        results.append(result)
+        result = pipeline.execute(username, password)
+        results.append({
+            "username": username,
+            "status": "active" if result.success else "failed",
+            "last_result": result.message or ("签到成功" if result.success else "签到失败"),
+            "balance": result.data.get("balance") if result.data else None,
+            "checkin_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()) if result.success else None,
+        })
 
         if i < len(accounts) - 1:
-            # 每 15 个账号暂停 2 分钟，避免触发限流
             if (i + 1) % 15 == 0:
                 pause = 120
                 log.info("Batch pause", extra={"completed": i + 1, "pause_sec": pause})
                 time.sleep(pause)
             else:
-                delay = random.randint(15, 30)
-                time.sleep(delay)
+                time.sleep(random.randint(15, 30))
 
     RESULTS_FILE.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
     success = sum(1 for r in results if r["status"] == "active")
