@@ -21,10 +21,10 @@ export function isToday(ts: string | undefined): boolean {
 
 export function timeAgo(ts: string | undefined): string {
   if (!ts) return "-";
-  const d = new Date(ts);
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const h = String(d.getHours()).padStart(2, "0");
+  const d = new Date(new Date(ts).getTime() + 8 * 3600000); // UTC+8
+  const m = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  const h = String(d.getUTCHours()).padStart(2, "0");
   return `${m}/${day} ${h}时`;
 }
 
