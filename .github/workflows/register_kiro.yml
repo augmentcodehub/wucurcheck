@@ -73,63 +73,20 @@ jobs:
         EMAIL_API_KEY: ${{ secrets.OURAIHUB_EMAIL_API_KEY }}
       run: |
         New-Item -ItemType Directory -Force -Path "artifacts" | Out-Null
-        $count = [int]"${{ inputs.count }}"
-        $results = @()
-
-        for ($i = 0; $i -lt $count; $i++) {
-          echo "--- 注册第 $($i+1)/$count 个账号 ---"
-
-          $args = @(
-            "python/src/cli/register_kiro.py",
-            "--email-provider", "${{ inputs.email_provider }}",
-            "--email-api-key", $env:EMAIL_API_KEY,
-            "--email-domain", "${{ inputs.email_domain }}",
-            "--code-timeout", "180",
-            "--json"
-          )
-
-          $proxy = "${{ inputs.proxy }}"
-          if ($proxy) {
-            $args += @("--proxy", $proxy)
-          }
-
-          $output = uv run python @args 2>&1 | Out-String
-          echo $output
-
-          try {
-            $result = $output.Trim().Split("`n") | Where-Object { $_.StartsWith("{") } | Select-Object -Last 1 | ConvertFrom-Json
-            $results += @{
-              username = $result.email
-              password = $result.password
-              platform = "kiro"
-              status = if ($result.success) { "active" } else { "failed" }
-              last_result = if ($result.success) { "注册成功" } else { "注册失败: $($result.error)" }
-              name = $result.name
-              sso_token = $result.sso_token
-              access_token = $result.access_token
-              refresh_token = $result.refresh_token
-              client_id = $result.client_id
-              client_secret = $result.client_secret
-              region = $result.region
-              expires_in = $result.expires_in
-            }
-          } catch {
-            $results += @{
-              username = "unknown"
-              platform = "kiro"
-              status = "failed"
-              last_result = "输出解析失败"
-            }
-          }
-
-          if ($i -lt $count - 1) {
-            Start-Sleep -Seconds 15
-          }
-        }
-
-        $results | ConvertTo-Json -Depth 3 -AsArray | Out-File -FilePath artifacts/kiro_register_results.json -Encoding utf8
-        $succeeded = ($results | Where-Object { $_.status -eq "active" }).Count
-        echo "注册完成: $succeeded/$count 成功"
+        $args = @(
+          "python/src/cli/register.py",
+          "--provider", "kiro",
+          "--count", "${{ inputs.count }}",
+          "--email-provider", "${{ inputs.email_provider }}",
+          "--email-api-key", $env:EMAIL_API_KEY,
+          "--email-domain", "${{ inputs.email_domain }}",
+          "--code-timeout", "180",
+          "--output", "artifacts/kiro_register_results.json",
+          "--json"
+        )
+        $proxy = "${{ inputs.proxy }}"
+        if ($proxy) { $args += @("--proxy", $proxy) }
+        uv run python @args
 
     - name: 上传结果
       if: always()

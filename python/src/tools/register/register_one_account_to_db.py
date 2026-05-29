@@ -17,8 +17,46 @@ if str(ROOT_DIR) not in sys.path:
 	sys.path.insert(0, str(ROOT_DIR))
 
 from adapters.persistence.sqlite.account_registry_db import DEFAULT_DB_PATH, connect_db, ensure_schema, upsert_registered_account
-from tools.register.register_one_account import load_account_from_file, load_account_from_json_text, validate_account
 from utils.logger import get_logger
+
+
+def load_account_from_json_text(text: str) -> dict:
+	try:
+		data = json.loads(text)
+	except json.JSONDecodeError as exc:
+		raise ValueError(f'Invalid JSON input: {exc}') from exc
+	if not isinstance(data, dict):
+		raise ValueError('Input must be a single JSON object')
+	return data
+
+
+def load_account_from_file(path: Path) -> dict:
+	if not path.exists():
+		raise ValueError(f'File not found: {path}')
+	return load_account_from_json_text(path.read_text(encoding='utf-8'))
+
+
+def validate_account(account: dict) -> dict[str, str]:
+	name = str(account.get('name', '')).strip()
+	provider = str(account.get('provider', '')).strip()
+	username = str(account.get('username', '')).strip()
+	password = str(account.get('password', '')).strip()
+
+	if not name:
+		raise ValueError('Missing required field: name')
+	if provider != 'wucur':
+		raise ValueError(f'Unsupported provider: {provider!r}, expected "wucur"')
+	if not username:
+		raise ValueError('Missing required field: username')
+	if not password:
+		raise ValueError('Missing required field: password')
+
+	return {
+		'name': name,
+		'provider': provider,
+		'username': username,
+		'password': password,
+	}
 
 REGISTER_SCRIPT_PATH = Path(__file__).resolve().parents[2] / 'cli' / 'register_wucur.py'
 

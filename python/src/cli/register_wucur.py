@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# DEPRECATED: Use cli/register.py --provider wucur
 """Wucur account registration helper."""
 
 from __future__ import annotations

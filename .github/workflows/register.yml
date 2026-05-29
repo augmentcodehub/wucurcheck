@@ -63,42 +63,24 @@ jobs:
       if: steps.uv-cache.outputs.cache-hit != 'true'
       run: uv sync
 
-    - name: 生成并注册账号
+    - name: 注册账号
       id: register
       env:
         PROVIDERS: ${{ secrets.PROVIDERS }}
       run: |
         New-Item -ItemType Directory -Force -Path "artifacts" | Out-Null
-
-        # 生成账号
-        uv run python python/src/tools/account_generation/gen_natural_accounts.py ${{ inputs.count }} "${{ inputs.email_domain }}" "${{ inputs.password }}" "${{ inputs.email_prefix }}" | Out-File -FilePath artifacts/generated_accounts.json -Encoding utf8
-        Get-Content artifacts/generated_accounts.json
-
-        # 逐个注册
-        $accounts = Get-Content artifacts/generated_accounts.json | ConvertFrom-Json
-        $results = @()
-        foreach ($account in $accounts) {
-          $accountJson = $account | ConvertTo-Json -Compress
-          echo "--- 注册: $($account.username) ---"
-          $exitCode = 0
-          try {
-            uv run python python/src/tools/register/register_one_account.py --json-input $accountJson --json
-            $exitCode = $LASTEXITCODE
-          } catch {
-            $exitCode = 1
-          }
-          $results += @{
-            username = $account.username
-            password = $account.password
-            platform = $account.provider
-            status = if ($exitCode -eq 0) { "active" } else { "failed" }
-            last_result = if ($exitCode -eq 0) { "注册成功" } else { "注册失败" }
-          }
-          Start-Sleep -Seconds 10
-        }
-
-        $results | ConvertTo-Json -Depth 3 | Out-File -FilePath artifacts/register_results.json -Encoding utf8
-        echo "注册完成: $($results.Count) 个账号"
+        $args = @(
+          "python/src/cli/register.py",
+          "--provider", "wucur",
+          "--count", "${{ inputs.count }}",
+          "--email-domain", "${{ inputs.email_domain }}",
+          "--email-prefix", "${{ inputs.email_prefix }}",
+          "--password", "${{ inputs.password }}",
+          "--checkin",
+          "--output", "artifacts/register_results.json",
+          "--json"
+        )
+        uv run python @args
 
     - name: 回调 Worker Dashboard
       if: always()

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# DEPRECATED: Use cli/register.py --provider kiro
 """CLI entry point for Kiro (AWS Builder ID) account registration."""
 
 from __future__ import annotations
