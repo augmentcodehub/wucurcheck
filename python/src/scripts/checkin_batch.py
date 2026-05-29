@@ -34,12 +34,14 @@ def run():
 
         try:
             result = pipeline.execute(username, password)
+            balance_increased = result.data.get("balance_increased", False) if result.data else False
             results.append({
                 "username": username,
                 "status": "active" if result.success else "failed",
                 "last_result": result.message or ("签到成功" if result.success else "签到失败"),
                 "balance": result.data.get("balance") if result.data else None,
-                "checkin_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()) if result.success else None,
+                # 余额没增加 → 不写 checkin_time → Worker 下次 cron 还会重试
+                "checkin_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()) if balance_increased else None,
             })
         except Exception as e:
             log.error("Account exception", extra={"username": username, "error": str(e)[:100]})
