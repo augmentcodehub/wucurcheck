@@ -3,7 +3,7 @@
  */
 
 import { log, withLogContext } from "./lib/log.js";
-import { KV_KEY } from "./lib/constants.js";
+import { KV_KEY, DEFAULT_PASSWORD } from "./lib/constants.js";
 import { handleLogin, handleLogout, authMiddleware } from "./services/auth-service.js";
 import { handleCallback } from "./handlers/callback.js";
 import { apiTrigger } from "./handlers/actions.js";
@@ -45,28 +45,39 @@ export default {
 
   async scheduled(_event: ScheduledController, env: Env, _ctx: ExecutionContext): Promise<void> {
     return withLogContext({ trigger: "cron", rid: crypto.randomUUID().slice(0, 8) }, async () => {
+      try {
       const config = await env.KV.get<number[]>(KV_KEY.CRON_HOUR, "json");
       const hours = config || [0];
       const currentHour = new Date().getUTCHours();
 
-      if (!hours.includes(currentHour)) return;
-      log.info("cron_triggered", { hour: currentHour });
+      if (!hours.includes(currentHour)) {
+        log.info("cron_skip", { hour: String(currentHour), configured: hours.join(",") });
+        return;
+      }
+      log.info("cron_triggered", { hour: String(currentHour) });
 
     const callbackUrl = `${env.WORKER_URL}/callback`;
     const repo = new KvAccountRepository(env.KV);
     const accounts = await repo.list();
     const unchecked = accounts
       .filter((a) => a.status === "active" && (!a.platform || a.platform === "wucur") && !isToday(a.checkin_time))
-      .map((a) => ({ username: a.username, password: a.password }));
+      .map((a) => ({ username: a.username, password: a.password || DEFAULT_PASSWORD }));
 
-    if (unchecked.length > 0) {
-      const result = await triggerWorkflow(env, {
-        action: "checkin_unchecked",
-        callbackUrl,
-        inputs: { accounts_json: JSON.stringify(unchecked) },
-      });
-      log.info("cron_checkin_batch", { ok: String(result.ok), count: unchecked.length });
+    if (unchecked.length === 0) {
+      log.info("cron_all_checked", { total_active: String(accounts.filter((a) => a.status === "active").length) });
+      return;
     }
+
+    const result = await triggerWorkflow(env, {
+      action: "checkin_unchecked",
+      callbackUrl,
+      inputs: { accounts_json: JSON.stringify(unchecked) },
+    });
+    log.info("cron_checkin_dispatch", { ok: String(result.ok), count: String(unchecked.length), error: result.error || "" });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "unknown";
+        log.error("cron_error", { error: msg });
+      }
     });
   },
 } satisfies ExportedHandler<Env>;

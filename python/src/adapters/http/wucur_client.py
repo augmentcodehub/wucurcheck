@@ -137,11 +137,11 @@ def login_with_bearer_token(client: httpx.Client, account_name: str, provider_co
 	try:
 		response = client.post(login_url, headers=login_headers, json=build_login_payload(account), timeout=30)
 	except Exception as e:
-		log.error('Login request failed - str(e)[:50]...', extra={'account': account_name})
+		log.error('Login request failed', extra={'account': account_name, 'error': str(e)[:50]})
 		return None
 
 	if response.status_code != 200:
-		log.error('Login failed - HTTP response.status_code', extra={'account': account_name})
+		log.error('Login failed', extra={'account': account_name, 'status': response.status_code})
 		return None
 
 	token = extract_token_from_login_response(response)
@@ -174,11 +174,11 @@ def login_with_session(client: httpx.Client, account_name: str, provider_config,
 	try:
 		response = client.post(login_url, headers=login_headers, json=build_login_payload(account), timeout=30)
 	except Exception as e:
-		log.error('Login request failed - str(e)[:50]...', extra={'account': account_name})
+		log.error('Login request failed', extra={'account': account_name, 'error': str(e)[:50]})
 		return None
 
 	if response.status_code != 200:
-		log.error('Login failed - HTTP response.status_code', extra={'account': account_name})
+		log.error('Login failed', extra={'account': account_name, 'status': response.status_code})
 		return None
 
 	try:
@@ -189,7 +189,7 @@ def login_with_session(client: httpx.Client, account_name: str, provider_config,
 
 	if not result.get('success'):
 		error_msg = result.get('message', 'Unknown error')
-		log.error('Login failed - error_msg', extra={'account': account_name})
+		log.error('Login failed', extra={'account': account_name, 'error_msg': error_msg})
 		return None
 
 	if 'session' not in client.cookies:
@@ -243,7 +243,9 @@ def checkin_account(client: httpx.Client, headers: dict, sign_in_url: str) -> di
 	response = client.post(sign_in_url, headers=checkin_headers, timeout=30)
 	data = parse_response(response)
 	if response.status_code != 200:
+		log.warning('Checkin HTTP error', extra={'status': response.status_code, 'url': sign_in_url})
 		return {'success': False, 'message': f'HTTP {response.status_code}', 'raw': data}
+	log.info('Checkin response', extra={'success': data.get('success'), 'message': str(data.get('message', ''))[:80]})
 	return data
 
 
@@ -260,22 +262,26 @@ def register_account(client: httpx.Client, username: str, password: str) -> dict
 		last_result = data
 
 		if response.status_code == 200 and data.get('success'):
+			log.info('Register success', extra={'username': username})
 			return data
 
 		raw_message = str(data.get('message', ''))
 		should_retry = response.status_code in TRANSIENT_STATUS_CODES or 'Invalid JSON response' in raw_message
 		if not should_retry or attempt == 3:
+			log.warning('Register failed', extra={'username': username, 'status': response.status_code, 'message': raw_message[:80]})
 			if response.status_code != 200:
 				return {'success': False, 'message': f'HTTP {response.status_code}', 'raw': data}
 			return data
 
-		log.warning('Register transient failure, retrying ({attempt}/3): HTTP {response.status_code}, {raw_message}')
+		log.warning('Register transient failure, retrying', extra={'username': username, 'attempt': attempt, 'status': response.status_code, 'message': raw_message[:80]})
 		time.sleep(attempt)
 
+	log.error('Register exhausted retries', extra={'username': username})
 	return last_result if isinstance(last_result, dict) else {'success': False, 'message': 'Unknown register failure'}
 
 
 def login_account(client: httpx.Client, username: str, password: str) -> dict:
+	log.info('Login attempt', extra={'username': username, 'has_password': bool(password)})
 	response = client.post(
 		f'{BASE_URL}{LOGIN_PATH}',
 		headers=build_headers('/login'),
@@ -284,10 +290,14 @@ def login_account(client: httpx.Client, username: str, password: str) -> dict:
 	)
 	data = parse_response(response)
 	if response.status_code != 200:
+		log.warning('Login HTTP error', extra={'username': username, 'status': response.status_code})
 		return {'success': False, 'message': f'HTTP {response.status_code}', 'raw': data}
 	if not data.get('success'):
+		log.warning('Login rejected', extra={'username': username, 'message': str(data.get('message', ''))[:80]})
 		return data
 	if 'session' not in client.cookies:
+		log.warning('Login no session cookie', extra={'username': username})
 		return {'success': False, 'message': 'Login succeeded but session cookie was not found', 'raw': data}
+	log.info('Login success', extra={'username': username})
 	return data
 
