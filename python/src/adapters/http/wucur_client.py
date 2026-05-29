@@ -245,7 +245,7 @@ def checkin_account(client: httpx.Client, headers: dict, sign_in_url: str) -> di
 	if response.status_code != 200:
 		log.warning('Checkin HTTP error', extra={'status': response.status_code, 'url': sign_in_url})
 		return {'success': False, 'message': f'HTTP {response.status_code}', 'raw': data}
-	log.info('Checkin response', extra={'success': data.get('success'), 'message': str(data.get('message', ''))[:80]})
+	log.info('Checkin response', extra={'success': data.get('success'), 'msg': str(data.get('message', ''))[:80]})
 	return data
 
 
@@ -268,12 +268,12 @@ def register_account(client: httpx.Client, username: str, password: str) -> dict
 		raw_message = str(data.get('message', ''))
 		should_retry = response.status_code in TRANSIENT_STATUS_CODES or 'Invalid JSON response' in raw_message
 		if not should_retry or attempt == 3:
-			log.warning('Register failed', extra={'username': username, 'status': response.status_code, 'message': raw_message[:80]})
+			log.warning('Register failed', extra={'username': username, 'status': response.status_code, 'msg': raw_message[:80]})
 			if response.status_code != 200:
 				return {'success': False, 'message': f'HTTP {response.status_code}', 'raw': data}
 			return data
 
-		log.warning('Register transient failure, retrying', extra={'username': username, 'attempt': attempt, 'status': response.status_code, 'message': raw_message[:80]})
+		log.warning('Register transient failure, retrying', extra={'username': username, 'attempt': attempt, 'status': response.status_code, 'msg': raw_message[:80]})
 		time.sleep(attempt)
 
 	log.error('Register exhausted retries', extra={'username': username})
@@ -293,7 +293,7 @@ def login_account(client: httpx.Client, username: str, password: str) -> dict:
 		log.warning('Login HTTP error', extra={'username': username, 'status': response.status_code})
 		return {'success': False, 'message': f'HTTP {response.status_code}', 'raw': data}
 	if not data.get('success'):
-		log.warning('Login rejected', extra={'username': username, 'message': str(data.get('message', ''))[:80]})
+		log.warning('Login rejected', extra={'username': username, 'msg': str(data.get('message', ''))[:80]})
 		return data
 	if 'session' not in client.cookies:
 		log.warning('Login no session cookie', extra={'username': username})
