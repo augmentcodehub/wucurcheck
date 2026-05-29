@@ -21,10 +21,12 @@ async function batchDel(action) {
 
 /** Filter table rows by status badge text */
 function filterByStatus(status) {
-  document.querySelectorAll("#tbody-wucur tr, #tab-kiro tbody tr").forEach(row => {
-    if (!status) { row.style.display = ""; return; }
-    const badge = row.querySelector(".badge");
-    const rowStatus = badge ? badge.textContent.trim() : "";
-    row.style.display = rowStatus === status ? "" : "none";
-  });
+  var rows = document.querySelectorAll("#tbody-wucur tr");
+  for (var i = 0; i < rows.length; i++) {
+    var row = rows[i];
+    if (!status) { row.style.display = ""; continue; }
+    var badge = row.querySelector(".badge");
+    var text = badge ? badge.textContent.trim() : "";
+    row.style.display = (text === status) ? "" : "none";
+  }
 }
