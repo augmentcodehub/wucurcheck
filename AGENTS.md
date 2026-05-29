@@ -2,6 +2,11 @@
 
 wucurcheck — 多平台账号管理（注册、签到、刷新）。Python + Worker + Node。
 
+## 必读规范
+
+- **日志与异常规范**：[docs/logging-standards.md](docs/logging-standards.md) — 所有代码必须遵守
+- **运维手册**：[docs/ops-manual.md](docs/ops-manual.md) — KV 查询、部署、问题排查
+
 ## 开发
 
 ```bash
@@ -33,13 +38,16 @@ cd node-register && npm install && npm test
 ```
 wucurcheck/
 ├── python/              # Python 主代码
-│   ├── src/             # 源码（六边形架构）
-│   │   ├── core/        # 领域层（domain + ports + application）
-│   │   ├── adapters/    # 适配器层（实现 ports）
+│   ├── src/             # 源码
+│   │   ├── core/        # 领域层（Result, domain, ports）
+│   │   ├── providers/   # Provider 实现（wucur, anyrouter, kiro）
+│   │   ├── pipelines/   # Pipeline 编排（checkin, register）
+│   │   ├── lib/         # 共享基础设施（constants, http, registry）
+│   │   ├── adapters/    # 旧适配器层（逐步迁移到 providers）
 │   │   ├── cli/         # CLI 入口
-│   │   ├── scripts/     # 独立脚本
+│   │   ├── scripts/     # GitHub Actions 入口脚本（薄壳）
 │   │   ├── tools/       # 工具（账号生成、导出等）
-│   │   ├── utils/       # 通用工具
+│   │   ├── utils/       # 通用工具（logger, notify, config）
 │   │   └── wucur_cli/   # 统一 CLI 包
 │   └── tests/           # 测试
 ├── worker-dashboard/    # Cloudflare Worker 管理面板
@@ -72,14 +80,14 @@ LICENSE
 
 - ❌ 创建新的顶层目录
 - ❌ 在 `python/src/` 外放 Python 源码
-- ❌ 在 `python/src/` 下创建新的顶层子目录（已有 core/adapters/cli/scripts/tools/utils/wucur_cli）
 - ❌ 修改 `python/src/core/ports/` 的接口签名（除非明确要求）
 - ❌ 在 Worker 代码里放 Python，或反过来
 
-**Python 架构约束（六边形架构）：**
+**Python 架构约束：**
 
-- `core/ports/` — Protocol 接口定义（只有接口，无实现）
-- `core/application/` — Use Case（依赖注入，不直接 import adapter）
-- `core/domain.py` — 纯值对象（frozen dataclass）
-- `adapters/` — 实现 ports 接口
-- 依赖方向：adapters → core，永远不能反过来
+- `providers/` — Provider 实现（@registry.register 装饰器注册，无状态策略对象）
+- `pipelines/` — Pipeline 编排（组合 Provider 方法，管理 httpx.Client 生命周期）
+- `lib/` — 共享基础设施（constants, http 工具函数, registry）
+- `core/result.py` — 统一返回值（Result.ok / Result.fail）
+- `scripts/` — GitHub Actions 入口（薄壳，只做 IO，业务逻辑在 pipeline）
+- 依赖方向：scripts → pipelines → providers → lib/core
