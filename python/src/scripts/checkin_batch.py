@@ -44,6 +44,16 @@ def run():
             # 其他情况（余额没变且非"已签到"）→ 站点可能还没重置，下次重试
             checkin_confirmed = balance_increased or already_checked
 
+            log.info("Checkin result", extra={
+                "username": username,
+                "checkin_confirmed": checkin_confirmed,
+                "balance_increased": balance_increased,
+                "already_checked": already_checked,
+                "before_quota": str(result.data.get("before_quota")) if result.data else None,
+                "after_quota": str(result.data.get("after_quota")) if result.data else None,
+                "checkin_message": checkin_msg,
+            })
+
             results.append({
                 "username": username,
                 "status": "active" if result.success else "failed",
