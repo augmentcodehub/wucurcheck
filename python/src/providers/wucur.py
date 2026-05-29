@@ -36,7 +36,7 @@ class WucurProvider:
         data = parse_response(resp)
         if resp.status_code != 200 or not data.get("success"):
             msg = data.get("message", f"HTTP {resp.status_code}")
-            log.warning("Login failed", extra={"username": username, "message": msg})
+            log.warning("Login failed", extra={"username": username, "reason": msg})
             return Result.fail(msg)
         if "session" not in client.cookies:
             log.warning("Login no session cookie", extra={"username": username})
@@ -54,6 +54,7 @@ class WucurProvider:
             msg = data.get("message", "")
             if "已签到" in msg or "已经签到" in msg:
                 return Result.ok(data, message="今日已签到")
+            log.warning("Checkin failed", extra={"status": resp.status_code, "msg": msg[:80]})
             return Result.fail(msg, data)
         quota_awarded = data.get("data", {}).get("quota_awarded", 0)
         return Result.ok(data, message=f"签到成功 +${quota_awarded / QUOTA_UNIT_DIVISOR:.2f}")
@@ -63,6 +64,7 @@ class WucurProvider:
         resp = client.get(f"{self.domain}{self.user_info_path}", headers=headers, timeout=30)
         data = parse_response(resp)
         if resp.status_code != 200 or not data.get("success"):
+            log.warning("Get balance failed", extra={"status": resp.status_code})
             return Result.fail(f"HTTP {resp.status_code}")
         user = data.get("data", {})
         return Result.ok({

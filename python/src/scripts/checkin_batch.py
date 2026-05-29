@@ -32,14 +32,24 @@ def run():
         password = acct.get("password", "")
         log.info("Processing", extra={"username": username, "has_password": bool(password)})
 
-        result = pipeline.execute(username, password)
-        results.append({
-            "username": username,
-            "status": "active" if result.success else "failed",
-            "last_result": result.message or ("签到成功" if result.success else "签到失败"),
-            "balance": result.data.get("balance") if result.data else None,
-            "checkin_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()) if result.success else None,
-        })
+        try:
+            result = pipeline.execute(username, password)
+            results.append({
+                "username": username,
+                "status": "active" if result.success else "failed",
+                "last_result": result.message or ("签到成功" if result.success else "签到失败"),
+                "balance": result.data.get("balance") if result.data else None,
+                "checkin_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()) if result.success else None,
+            })
+        except Exception as e:
+            log.error("Account exception", extra={"username": username, "error": str(e)[:100]})
+            results.append({
+                "username": username,
+                "status": "failed",
+                "last_result": f"异常: {str(e)[:80]}",
+                "balance": None,
+                "checkin_time": None,
+            })
 
         if i < len(accounts) - 1:
             if (i + 1) % 15 == 0:
