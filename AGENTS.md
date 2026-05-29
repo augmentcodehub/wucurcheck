@@ -87,7 +87,10 @@ LICENSE
 
 - `providers/` — Provider 实现（@registry.register 装饰器注册，无状态策略对象）
 - `pipelines/` — Pipeline 编排（组合 Provider 方法，管理 httpx.Client 生命周期）
-- `lib/` — 共享基础设施（constants, http 工具函数, registry）
+- `lib/` — 共享基础设施（constants, http 工具函数, registry, balance_tracker, notify_formatter）
 - `core/result.py` — 统一返回值（Result.ok / Result.fail）
+- `cli/register.py` — 统一注册入口（`--provider kiro|wucur`，替代独立的 register_kiro.py / register_wucur.py）
+- `cli/checkin.py` — 全功能签到（WAF 绕过 + 多登录模式，由 checkin.yml 调用）
+- `scripts/checkin_batch.py` — 轻量批量签到（Pipeline 模式，由 checkin_batch.yml 调用）
 - `scripts/` — GitHub Actions 入口（薄壳，只做 IO，业务逻辑在 pipeline）
 - 依赖方向：scripts → pipelines → providers → lib/core
