@@ -35,13 +35,21 @@ def run():
         try:
             result = pipeline.execute(username, password)
             balance_increased = result.data.get("balance_increased", False) if result.data else False
+            checkin_msg = result.data.get("checkin_message", "") if result.data else ""
+            already_checked = "已签到" in checkin_msg
+
+            # 判断是否真正完成了今日签到：
+            # 1. 余额增加了 → 签到成功
+            # 2. API 返回"已签到" → 今天已经签过了
+            # 其他情况（余额没变且非"已签到"）→ 站点可能还没重置，下次重试
+            checkin_confirmed = balance_increased or already_checked
+
             results.append({
                 "username": username,
                 "status": "active" if result.success else "failed",
                 "last_result": result.message or ("签到成功" if result.success else "签到失败"),
                 "balance": result.data.get("balance") if result.data else None,
-                # 余额没增加 → 不写 checkin_time → Worker 下次 cron 还会重试
-                "checkin_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()) if balance_increased else None,
+                "checkin_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()) if checkin_confirmed else None,
             })
         except Exception as e:
             log.error("Account exception", extra={"username": username, "error": str(e)[:100]})
