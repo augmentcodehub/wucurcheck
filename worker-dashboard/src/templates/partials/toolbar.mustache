@@ -1,6 +1,13 @@
 <div class="flex items-center justify-between mb-4">
   <h2 class="text-2xl font-bold">账号管理</h2>
   <div class="flex gap-2">
+    <select class="select select-sm select-bordered" onchange="filterByStatus(this.value)">
+      <option value="">全部状态</option>
+      <option value="active">✅ 正常</option>
+      <option value="failed">❌ 失败</option>
+      <option value="expired">⏰ 过期</option>
+      <option value="pending">⏳ 待处理</option>
+    </select>
     <button type="button" class="btn btn-success btn-sm" onclick="document.getElementById('register-modal').showModal()">➕ 批量注册</button>
     <button type="button" class="btn btn-info btn-sm" onclick="document.getElementById('register-kiro-modal').showModal()">🚀 注册 Kiro</button>
     <button type="button" class="btn btn-primary btn-sm" hx-post="/api/trigger" hx-vals='{"action":"checkin"}' hx-swap="none">🔄 手动触发签到</button>

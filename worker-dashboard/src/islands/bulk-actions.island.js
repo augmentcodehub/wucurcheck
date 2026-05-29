@@ -18,3 +18,13 @@ async function batchDel(action) {
   if (d.success) { showToast("✅ 已删除 " + d.count + " 个", true); setTimeout(() => location.reload(), 500); }
   else showToast("❌ 失败", false);
 }
+
+/** Filter table rows by status badge text */
+function filterByStatus(status) {
+  document.querySelectorAll("#tbody-wucur tr, #tab-kiro tbody tr").forEach(row => {
+    if (!status) { row.style.display = ""; return; }
+    const badge = row.querySelector(".badge");
+    const rowStatus = badge ? badge.textContent.trim() : "";
+    row.style.display = rowStatus === status ? "" : "none";
+  });
+}
