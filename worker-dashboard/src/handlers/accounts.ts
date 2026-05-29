@@ -2,7 +2,7 @@
 
 import { KvAccountRepository } from "../repositories/kv-account-repository.js";
 import { isToday } from "../views/helpers.js";
-import { renderToolbar, renderTable } from "../views/account-table.js";
+import { renderToolbar, renderTable, renderWucurTbody } from "../views/account-table.js";
 import { renderDetailModal, renderRegisterModal, renderRegisterKiroModal } from "../views/modals.js";
 import { renderSettingsPanel } from "../views/settings-panel.js";
 import { Res } from "../lib/response.js";
@@ -32,6 +32,17 @@ export async function pageAccounts(_request: Request, env: Env): Promise<Respons
 export async function apiAccounts(_request: Request, env: Env): Promise<Response> {
   const repo = new KvAccountRepository(env.KV);
   return Res.json(await repo.list());
+}
+
+export async function apiAccountsTable(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const status = url.searchParams.get("status") || "";
+  const repo = new KvAccountRepository(env.KV);
+  const accounts = await repo.list();
+  let wucur = accounts.filter((a) => !a.platform || a.platform === "wucur");
+  if (status) wucur = wucur.filter((a) => a.status === status);
+  const html = renderWucurTbody(wucur);
+  return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
 }
 
 export async function apiExportCsv(_request: Request, env: Env): Promise<Response> {

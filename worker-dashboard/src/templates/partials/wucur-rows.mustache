@@ -1,0 +1,23 @@
+{{#accounts}}
+<tr>
+  <td><input type="checkbox" class="checkbox checkbox-xs row-check" value="{{username}}"/></td>
+  <td class="font-mono">{{username}}</td>
+  <td class="font-mono text-xs">
+    <span class="inline-flex items-center gap-1">
+      <span class="pwd-mask" data-p="{{password}}">••••••</span>
+      <button type="button" class="btn btn-ghost btn-xs px-1" onclick="togglePwd(this)" title="显示/隐藏">👁</button>
+      <button type="button" class="btn btn-ghost btn-xs px-1" onclick="copyPwd(this)" title="复制">📋</button>
+    </span>
+  </td>
+  <td>{{displayBalance}}</td>
+  <td>{{displayTime}}</td>
+  <td>{{{statusBadge}}}</td>
+  <td class="flex gap-1">
+    <button type="button" class="btn btn-xs btn-ghost" hx-get="/api/account/{{username}}" hx-target="#detail-body" hx-swap="innerHTML" onclick="document.getElementById('account-detail').showModal()">详情</button>
+    <button type="button" class="btn btn-xs btn-primary" hx-post="/api/trigger" hx-vals='{"action":"checkin","target":"{{username}}"}' hx-swap="none">签到</button>
+  </td>
+</tr>
+{{/accounts}}
+{{^accounts}}
+<tr><td colspan="7" class="text-center py-8 text-base-content/50">暂无账号</td></tr>
+{{/accounts}}

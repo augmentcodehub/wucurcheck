@@ -2,7 +2,7 @@
  * Router — pure request dispatch, no business logic.
  */
 
-import { pageAccounts, apiAccounts, apiExportCsv, apiExportKiro } from "./handlers/accounts.js";
+import { pageAccounts, apiAccounts, apiAccountsTable, apiExportCsv, apiExportKiro } from "./handlers/accounts.js";
 import { apiAccountDetail, apiLogs } from "./handlers/account-detail.js";
 import { apiTrigger } from "./handlers/actions.js";
 import { apiSettings } from "./handlers/settings.js";
@@ -13,6 +13,7 @@ import type { Route, RouteHandler } from "./types/index.js";
 const routes: Route[] = [
   { method: "GET", path: "/", handler: pageAccounts },
   { method: "GET", path: "/api/accounts", handler: apiAccounts },
+  { method: "GET", path: "/api/accounts/table", handler: apiAccountsTable },
   { method: "GET", path: "/api/export/csv", handler: apiExportCsv },
   { method: "GET", path: "/api/export/kiro", handler: apiExportKiro },
   { method: "GET", path: "/api/logs", handler: apiLogs },

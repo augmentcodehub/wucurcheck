@@ -91,3 +91,11 @@ export function renderTable(accounts: Account[]): string {
   <div id="tab-kiro" class="hidden">${kiroHtml}</div>
 </div>`;
 }
+
+import wucurRowsTemplate from "../templates/partials/wucur-rows.mustache";
+
+export function renderWucurTbody(accounts: Account[]): string {
+  return Mustache.render(wucurRowsTemplate, {
+    accounts: accounts.map(prepareWucurAccount),
+  });
+}

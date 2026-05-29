@@ -3,7 +3,7 @@
   <thead><tr>
     <th><input type="checkbox" class="checkbox checkbox-xs" onchange="toggleAll(this)"/></th>
     <th>用户名</th><th>密码</th><th>余额</th><th>签到时间</th>
-    <th><select class="select select-xs select-ghost" onchange="filterByStatus(this.value)"><option value="">状态</option><option value="active">✅ 正常</option><option value="failed">❌ 失败</option></select></th>
+    <th><select class="select select-xs select-ghost" name="status" hx-get="/api/accounts/table" hx-target="#tbody-wucur" hx-swap="innerHTML" hx-include="this"><option value="">状态</option><option value="active">✅ 正常</option><option value="failed">❌ 失败</option></select></th>
     <th>操作</th>
   </tr></thead>
   <tbody id="tbody-wucur">
