@@ -1,4 +1,8 @@
-"""Application use case for register + login + optional check-in."""
+"""Application use case for register + login + optional check-in.
+
+DEPRECATED: New code should use cli/register.py --provider wucur --checkin instead.
+Kept for backward compatibility with site_cli.py and register_wucur.py.
+"""
 
 from __future__ import annotations
 

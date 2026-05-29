@@ -4,7 +4,6 @@ AnyRouter.top 自动签到脚本
 """
 
 import asyncio
-import hashlib
 import json
 import os
 import sys
@@ -15,48 +14,20 @@ from dotenv import load_dotenv
 from playwright.async_api import async_playwright
 
 from utils.config import AccountConfig, AppConfig, load_accounts_config
-from utils.notify import notify
 from utils.logger import get_logger
+from utils.notify import notify
+from lib.balance_tracker import load_balance_hash, save_balance_hash, generate_balance_hash
+from lib.notify_formatter import format_check_in_notification
 
 log = get_logger('cli.checkin')
 
 load_dotenv()
-
-BALANCE_HASH_FILE = 'balance_hash.txt'
 
 try:
 	sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 	sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 except Exception:  # nosec B110
 	pass
-
-
-def load_balance_hash():
-	"""加载余额hash"""
-	try:
-		if os.path.exists(BALANCE_HASH_FILE):
-			with open(BALANCE_HASH_FILE, 'r', encoding='utf-8') as f:
-				return f.read().strip()
-	except Exception:  # nosec B110
-		pass
-	return None
-
-
-def save_balance_hash(balance_hash):
-	"""保存余额hash"""
-	try:
-		with open(BALANCE_HASH_FILE, 'w', encoding='utf-8') as f:
-			f.write(balance_hash)
-	except Exception as e:
-		log.warning('Failed to save balance hash', extra={'error': str(e)})
-
-
-def generate_balance_hash(balances):
-	"""生成余额数据的hash"""
-	# 将包含 quota 和 used 的结构转换为简单的 quota 值用于 hash 计算
-	simple_balances = {k: v['quota'] for k, v in balances.items()} if balances else {}
-	balance_json = json.dumps(simple_balances, sort_keys=True, separators=(',', ':'))
-	return hashlib.sha256(balance_json.encode('utf-8')).hexdigest()[:16]
 
 
 def parse_cookies(cookies_data):
@@ -364,55 +335,6 @@ def execute_check_in(client, account_name: str, provider_config, headers: dict):
 	else:
 		log.error('Check-in failed', extra={'account': account_name, 'status': response.status_code})
 		return False
-
-
-def format_check_in_notification(detail: dict) -> str:
-	"""格式化签到通知消息
-
-	Args:
-		detail: 包含签到详情的字典
-
-	Returns:
-		格式化后的通知消息
-	"""
-	lines = [
-		f'[CHECK-IN] {detail["name"]}',
-		'  ━━━━━━━━━━━━━━━━━━━━',
-		'  📍 签到前',
-		f'     💵 余额: ${detail["before_quota"]:.2f}  |  📊 累计消耗: ${detail["before_used"]:.2f}',
-		'  📍 签到后',
-		f'     💵 余额: ${detail["after_quota"]:.2f}  |  📊 累计消耗: ${detail["after_used"]:.2f}',
-	]
-
-	# 判断是否有变化
-	has_reward = detail['check_in_reward'] != 0
-	has_usage = detail['usage_increase'] != 0
-
-	if has_reward or has_usage:
-		lines.append('  ━━━━━━━━━━━━━━━━━━━━')
-
-		# 已签到但期间有使用
-		if not has_reward and has_usage:
-			lines.append('  ℹ️  今日已签到（期间有使用）')
-
-		# 签到获得
-		if has_reward:
-			lines.append(f'  🎁 签到获得: +${detail["check_in_reward"]:.2f}')
-
-		# 期间消耗
-		if has_usage:
-			lines.append(f'  📉 期间消耗: ${detail["usage_increase"]:.2f}')
-
-		# 余额变化
-		if detail['balance_change'] != 0:
-			change_symbol = '+' if detail['balance_change'] > 0 else ''
-			change_emoji = '📈' if detail['balance_change'] > 0 else '📉'
-			lines.append(f'  {change_emoji} 余额变化: {change_symbol}${detail["balance_change"]:.2f}')
-	else:
-		# 无任何变化
-		lines.extend(['  ━━━━━━━━━━━━━━━━━━━━', '  ℹ️  今日已签到，无变化'])
-
-	return '\n'.join(lines)
 
 
 async def check_in_account(account: AccountConfig, account_index: int, app_config: AppConfig):

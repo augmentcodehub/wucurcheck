@@ -17,7 +17,6 @@ _ALIASES = {
 	'generate_accounts': 'tools.account_generation.generate_accounts',
 	'make_wucur_test_account': 'tools.account_generation.make_wucur_test_account',
 	'query_wucur_accounts_db': 'cli.query_wucur_accounts_db',
-	'register_one_account': 'tools.register.register_one_account',
 	'register_one_account_to_db': 'tools.register.register_one_account_to_db',
 	'register_wucur': 'cli.register_wucur',
 	'register_wucur_wrapper': 'tools.account_generation.register_wucur_wrapper',

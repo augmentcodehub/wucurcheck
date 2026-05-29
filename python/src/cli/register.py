@@ -92,21 +92,8 @@ def _build_services(args) -> dict[str, RegistrationService]:
 
 
 async def _run(args) -> int:
-    # Resolve email
-    if args.provider == "kiro":
-        _, email = _build_email_client(args)
-        if not email:
-            log.error("Failed to resolve email address")
-            return 1
-    else:
-        email = args.email
-        if not email:
-            log.error("--email is required for provider %s", args.provider)
-            return 1
-
     services = _build_services(args)
     use_case = RegisterAccountUseCase(services)
-
     config = RegistrationConfig(
         proxy_url=args.proxy,
         headless=args.headless,
@@ -115,9 +102,78 @@ async def _run(args) -> int:
         password=args.password,
     )
 
-    result = await use_case.execute(args.provider, email, config, password=args.password)
-    _output_result(result, json_mode=args.json)
-    return 0 if result.success else 1
+    results = []
+    count = args.count or 1
+
+    # kiro 批量注册涉及 email client 状态管理，本次只支持 wucur 批量
+    if args.provider == "kiro" and count > 1:
+        log.warning("Kiro batch registration not yet supported, registering 1 account")
+        count = 1
+
+    for i in range(count):
+        email = _resolve_email(args, i)
+        if not email:
+            log.error("Failed to resolve email", extra={"iteration": i, "provider": args.provider})
+            results.append(RegistrationResult(success=False, platform=args.provider, error="email resolution failed"))
+            continue
+
+        result = await use_case.execute(args.provider, email, config, password=args.password)
+        results.append(result)
+        _output_result(result, json_mode=args.json)
+
+        # 注册后签到（仅 wucur）
+        if args.checkin and result.success and args.provider == "wucur":
+            _do_post_register_checkin(result)
+
+        # 间隔
+        if i < count - 1:
+            await asyncio.sleep(15)
+
+    # 写结果文件
+    if args.output:
+        _write_results(results, Path(args.output))
+
+    return 0 if any(r.success for r in results) else 1
+
+
+def _resolve_email(args: argparse.Namespace, iteration: int) -> str | None:
+    """为每次注册生成/获取 email 地址。"""
+    if args.provider == "kiro":
+        # kiro 保持现有行为：调 _build_email_client 获取地址
+        # 注意：kiro 目前只支持 count=1（_run 中已限制）
+        _, email = _build_email_client(args)
+        return email
+    elif args.provider == "wucur":
+        if args.email:
+            if iteration == 0:
+                return args.email
+            if "@" not in args.email:
+                return None
+            base, domain = args.email.split("@", 1)
+            return f"{base}{iteration}@{domain}"
+        from tools.account_generation.gen_natural_accounts import generate
+        accounts = generate(1, args.email_domain or "qq.com", args.password or "123Claude&Codex", args.email_prefix or "fruit+animal")
+        return accounts[0]["username"] if accounts else None
+    return args.email
+
+
+def _do_post_register_checkin(result: RegistrationResult) -> None:
+    """注册成功后执行签到。"""
+    from pipelines.checkin import CheckinPipeline
+    pipeline = CheckinPipeline()
+    checkin_result = pipeline.execute(result.username, result.password)
+    if checkin_result.success:
+        log.info("Post-register checkin OK", extra={"username": result.username})
+    else:
+        log.warning("Post-register checkin failed", extra={"username": result.username, "msg": checkin_result.message})
+
+
+def _write_results(results: list[RegistrationResult], path: Path) -> None:
+    """写结果到 JSON 文件。"""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    data = [r.to_callback_dict() for r in results]
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    log.info("Results written", extra={"path": str(path), "count": len(data)})
 
 
 def _output_result(result: RegistrationResult, *, json_mode: bool) -> None:
@@ -155,6 +211,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--code-timeout", type=int, default=120)
     parser.add_argument("--max-retries", type=int, default=2)
     parser.add_argument("--json", action="store_true", help="Output JSON")
+    parser.add_argument("--count", type=int, default=1, help="Number of accounts to register")
+    parser.add_argument("--output", help="Output JSON file path")
+    parser.add_argument("--checkin", action="store_true", help="Auto checkin after wucur registration")
+    parser.add_argument("--email-prefix", default="fruit+animal", help="Email prefix pattern for generation")
 
     args = parser.parse_args(argv)
 
