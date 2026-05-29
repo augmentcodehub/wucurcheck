@@ -98,7 +98,10 @@ function toAccountFields(input: Record<string, unknown>): Partial<Account> {
 
 async function handleCheckin(data: Record<string, unknown>, env: Env): Promise<void> {
   const username = str(data.username);
-  if (!username) return;
+  if (!username) {
+    log.warn("callback_checkin_no_username", { keys: Object.keys(data).join(",") });
+    return;
+  }
 
   const fields = toAccountFields(data);
   if (!fields.checkin_time) fields.checkin_time = new Date().toISOString();
@@ -107,6 +110,7 @@ async function handleCheckin(data: Record<string, unknown>, env: Env): Promise<v
 
   const repo = new KvAccountRepository(env.KV);
   await repo.put(username, fields);
+  log.info("callback_checkin_done", { username, status: fields.status || "" });
 
   if (data.status === "failed") {
     const failLogs = new KvFailLogRepository(env.KV);
@@ -122,29 +126,58 @@ async function handleBatchResult(data: Record<string, unknown>, env: Env): Promi
   const repo = new KvAccountRepository(env.KV);
   const failLogs = new KvFailLogRepository(env.KV);
 
+  let successCount = 0;
+  let failCount = 0;
+
   for (const item of items) {
-    if (!isObject(item)) continue;
-    const username = str(item.username) || str(item.email);
-    if (!username) continue;
+    try {
+      if (!isObject(item)) continue;
+      const username = str(item.username) || str(item.email);
+      if (!username) continue;
 
-    const fields = toAccountFields(item);
-    fields.username = username;
-    if (!fields.status) fields.status = "active";
-    if (!fields.last_result) fields.last_result = str(item.error) || str(item.message) || "批量结果更新";
+      const fields = toAccountFields(item);
+      fields.username = username;
+      if (!fields.status) fields.status = "active";
+      if (!fields.last_result) fields.last_result = str(item.error) || str(item.message) || "批量结果更新";
 
-    await repo.put(username, fields);
+      const existing = await repo.get(username);
+      const statusChanged = existing?.status !== fields.status;
 
-    if (item.status === "failed") {
-      await failLogs.write(username, { date: new Date().toISOString().slice(0, 10), reason: str(item.last_result) || str(item.error) || "未知" });
+      if (statusChanged || fields.status === "failed") {
+        log.info("batch_item_update", {
+          username,
+          old_status: existing?.status || "unknown",
+          new_status: fields.status || "unknown",
+          last_result: fields.last_result || "",
+          has_password: String(!!existing?.password),
+        });
+      }
+
+      if (fields.status === "active") successCount++;
+      else failCount++;
+
+      await repo.put(username, fields);
+
+      if (item.status === "failed") {
+        await failLogs.write(username, { date: new Date().toISOString().slice(0, 10), reason: str(item.last_result) || str(item.error) || "未知" });
+      }
+    } catch (e) {
+      const username = isObject(item) ? str(item.username) || str(item.email) || "unknown" : "unknown";
+      const msg = e instanceof Error ? e.message : "unknown";
+      log.error("batch_item_error", { username, error: msg });
+      failCount++;
     }
   }
   await releaseLock(env, "checkin:_all");
-  log.info("batch_updated", { count: items.length });
+  log.info("batch_result_done", { total: String(items.length), success: String(successCount), failed: String(failCount) });
 }
 
 async function handleRegister(data: Record<string, unknown>, env: Env): Promise<void> {
   const username = str(data.username);
-  if (!username) return;
+  if (!username) {
+    log.warn("callback_register_no_username", { keys: Object.keys(data).join(",") });
+    return;
+  }
 
   const fields = toAccountFields(data);
   fields.username = username;
@@ -153,6 +186,7 @@ async function handleRegister(data: Record<string, unknown>, env: Env): Promise<
 
   const repo = new KvAccountRepository(env.KV);
   await repo.put(username, fields);
+  log.info("callback_register_done", { username, platform: fields.platform || "", has_password: String(!!fields.password) });
   await releaseLock(env, `register:${username}`);
 }
 

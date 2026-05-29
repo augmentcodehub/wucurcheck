@@ -423,14 +423,14 @@ async def check_in_account(account: AccountConfig, account_index: int, app_confi
 	provider_config = app_config.get_provider(account.provider)
 	if not provider_config:
 		log.error('Provider "{account.provider}" not found in configuration', extra={'account': account_name})
-		return False, None
+		return False, None, None
 
 	log.info('Using provider "{account.provider}" ({provider_config.domain})', extra={'account': account_name})
 
 	user_cookies = parse_cookies(account.cookies)
 	if not provider_config.uses_bearer_login() and not provider_config.uses_password_session() and not user_cookies:
 		log.error('Invalid configuration format', extra={'account': account_name})
-		return False, None
+		return False, None, None
 
 	client = httpx.Client(http2=True, timeout=30.0)
 
