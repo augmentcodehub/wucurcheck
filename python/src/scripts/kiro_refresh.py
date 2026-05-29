@@ -2,7 +2,14 @@
 import json
 import os
 import sys
+from pathlib import Path
+
 import httpx
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from utils.logger import get_logger
+
+log = get_logger("scripts.kiro_refresh")
 
 CF_ACCOUNT_ID = os.environ["CF_ACCOUNT_ID"]
 CF_API_TOKEN = os.environ["CF_API_TOKEN"]
@@ -24,6 +31,9 @@ def kv_list_accounts(client: httpx.Client) -> list[str]:
         if cursor:
             params["cursor"] = cursor
         r = client.get(f"{KV_BASE}/keys", headers=CF_HEADERS, params=params)
+        if r.status_code != 200:
+            log.error("KV list failed", extra={"status": r.status_code, "body": r.text[:100]})
+            break
         data = r.json()
         keys.extend(k["name"] for k in data.get("result", []))
         info = data.get("result_info", {})
@@ -40,7 +50,9 @@ def kv_get(client: httpx.Client, key: str) -> dict | None:
         try:
             return r.json()
         except Exception:
+            log.warning("KV parse failed", extra={"key": key})
             return None
+    log.warning("KV get failed", extra={"key": key, "status": r.status_code})
     return None
 
 
@@ -72,19 +84,27 @@ def refresh_oidc(client: httpx.Client, account: dict) -> dict:
 
 def callback(client: httpx.Client, results: list[dict]):
     if not CALLBACK_URL:
-        print("No callback URL, skipping")
+        log.info("Callback skipped, no URL configured")
         return
     payload = {"secret": CALLBACK_SECRET, "action": "batch_result", "data": {"results": results}}
-    r = client.post(CALLBACK_URL, json=payload, timeout=30)
-    print(f"Callback: {r.status_code} {r.text[:100]}")
+    try:
+        r = client.post(CALLBACK_URL, json=payload, timeout=30)
+        if r.status_code == 200:
+            log.info("Callback success", extra={"count": len(results)})
+        else:
+            log.error("Callback failed", extra={"status": r.status_code, "body": r.text[:100]})
+    except Exception as e:
+        log.error("Callback exception", extra={"error": str(e)[:100]})
 
 
 def main():
     with httpx.Client(http2=True) as client:
         if TARGET:
             keys = [f"account:{TARGET}"]
+            log.info("Single target mode", extra={"target": TARGET})
         else:
             keys = kv_list_accounts(client)
+            log.info("KV accounts listed", extra={"total_keys": len(keys)})
 
         kiro_accounts = []
         for key in keys:
@@ -92,7 +112,7 @@ def main():
             if account and account.get("platform") == "kiro" and account.get("refresh_token"):
                 kiro_accounts.append(account)
 
-        print(f"Refreshing {len(kiro_accounts)} kiro accounts")
+        log.info("Refresh started", extra={"kiro_accounts": len(kiro_accounts)})
         results = []
 
         for account in kiro_accounts:
@@ -106,20 +126,20 @@ def main():
                     "accessToken": r["accessToken"],
                     "last_result": "Token 刷新成功",
                 })
-                print(f"  ✓ {username}")
+                log.info("Refresh success", extra={"username": username})
             else:
                 results.append({
                     "username": username,
                     "status": "active",
                     "last_result": f"刷新失败: {r['error']}",
                 })
-                print(f"  ✗ {username}: {r['error']}")
+                log.warning("Refresh failed", extra={"username": username, "error": r["error"]})
 
         if results:
             callback(client, results)
 
         success = sum(1 for r in results if "成功" in r.get("last_result", ""))
-        print(f"\nDone: {success}/{len(results)} refreshed")
+        log.info("Refresh completed", extra={"success": success, "total": len(results)})
 
 
 if __name__ == "__main__":

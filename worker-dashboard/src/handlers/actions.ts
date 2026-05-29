@@ -9,10 +9,12 @@ import { hasValidSession } from "../services/auth-service.js";
 import { KvAccountRepository } from "../repositories/kv-account-repository.js";
 import { Res } from "../lib/response.js";
 import { isToday } from "../views/helpers.js";
+import { DEFAULT_PASSWORD } from "../lib/constants.js";
 
 async function handleDelete(target: string, _body: Record<string, unknown>, env: Env): Promise<Response> {
   if (!target) return Res.error("MISSING_TARGET", "target required");
   const repo = new KvAccountRepository(env.KV);
+  log.info("action_delete", { target });
   await repo.delete(target);
   return Res.json({ success: true, action: "delete", target });
 }
@@ -20,6 +22,7 @@ async function handleDelete(target: string, _body: Record<string, unknown>, env:
 async function handleDeleteAll(_target: string, _body: Record<string, unknown>, env: Env): Promise<Response> {
   const repo = new KvAccountRepository(env.KV);
   const accounts = await repo.list();
+  log.warn("action_delete_all", { count: String(accounts.length) });
   for (const a of accounts) await repo.delete(a.username);
   return Res.json({ success: true, action: "delete_all", count: accounts.length });
 }
@@ -28,6 +31,7 @@ async function handleDeleteFailed(_target: string, _body: Record<string, unknown
   const repo = new KvAccountRepository(env.KV);
   const accounts = await repo.list();
   const failed = accounts.filter((a) => a.status === "failed");
+  log.info("action_delete_failed", { count: String(failed.length) });
   for (const a of failed) await repo.delete(a.username);
   return Res.json({ success: true, action: "delete_failed", count: failed.length });
 }
@@ -35,20 +39,34 @@ async function handleDeleteFailed(_target: string, _body: Record<string, unknown
 async function handleCheckinUnchecked(_target: string, _body: Record<string, unknown>, env: Env, request: Request): Promise<Response> {
   const repo = new KvAccountRepository(env.KV);
   const accounts = await repo.list();
-  const unchecked = accounts
-    .filter((a) => a.status === "active" && (!a.platform || a.platform === "wucur") && !isToday(a.checkin_time))
-    .map((a) => ({ username: a.username, password: a.password }));
+  const wucurActive = accounts.filter((a) => a.status === "active" && (!a.platform || a.platform === "wucur"));
+  const unchecked = wucurActive
+    .filter((a) => !isToday(a.checkin_time))
+    .map((a) => ({ username: a.username, password: a.password || DEFAULT_PASSWORD }));
+
+  const usingDefault = unchecked.filter((a) => !accounts.find((x) => x.username === a.username)?.password);
+  log.info("checkin_unchecked_select", {
+    total_accounts: String(accounts.length),
+    wucur_active: String(wucurActive.length),
+    unchecked: String(unchecked.length),
+    using_default_password: usingDefault.map((a) => a.username).join(",") || "none",
+  });
 
   if (!unchecked.length) return Res.error("NO_UNCHECKED", "所有账号今日已签到");
 
   const callbackUrl = new URL("/callback", request.url).toString();
+  const payload = JSON.stringify(unchecked);
+  log.info("checkin_unchecked_dispatch", { payload_bytes: String(payload.length), count: String(unchecked.length) });
   const result = await triggerWorkflow(env, {
     action: "checkin_unchecked",
     callbackUrl,
-    inputs: { accounts_json: JSON.stringify(unchecked) },
+    inputs: { accounts_json: payload },
   });
 
-  if (!result.ok) return Res.error("DISPATCH_FAILED", result.error || "dispatch failed", 502);
+  if (!result.ok) {
+    log.error("checkin_unchecked_dispatch_failed", { error: result.error || "" });
+    return Res.error("DISPATCH_FAILED", result.error || "dispatch failed", 502);
+  }
   return Res.json({ success: true, workflow: result.workflow, dispatch_id: result.dispatch_id, count: unchecked.length });
 }
 

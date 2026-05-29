@@ -33,4 +33,5 @@ register_wucur_wrapper.json
 wucur_accounts.sqlite3
 wucur_accounts.sqlite3.bak-*
 
+docs/ops-manual.md
 .DS_Store

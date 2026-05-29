@@ -82,9 +82,11 @@ def run():
         for attempt in range(1, MAX_RETRIES + 2):
             with httpx.Client(http2=True, timeout=30.0) as client:
                 try:
+                    log.info("Login attempt", extra={"username": username, "has_password": bool(password), "attempt": attempt})
                     login_resp = login_account(client, username, password)
                     if not login_resp.get("success"):
                         msg = login_resp.get("message", "")
+                        log.warning("Login failed", extra={"username": username, "reason": msg, "has_password": bool(password)})
                         # 429 rate limit — retry after wait
                         if "429" in msg or "rate" in msg.lower():
                             if attempt <= MAX_RETRIES:
@@ -95,7 +97,6 @@ def run():
                         # Don't mark as failed for transient errors — keep active so next cron retries
                         if "429" in msg:
                             result["status"] = "active"
-                        log.warning("Login failed", extra={"username": username, "reason": msg})
                         break
 
                     user_id = str(login_resp.get("data", {}).get("id", ""))

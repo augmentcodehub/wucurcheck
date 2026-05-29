@@ -21,6 +21,8 @@ export const TTL = {
   STATIC_CACHE: 3600,
 } as const;
 
+export const DEFAULT_PASSWORD = "123Claude&Codex";
+
 export const CONTENT_TYPE = {
   HTML: "text/html; charset=utf-8",
   JSON: "application/json; charset=utf-8",
