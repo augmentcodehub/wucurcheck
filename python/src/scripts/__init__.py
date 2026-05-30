@@ -21,7 +21,6 @@ _ALIASES = {
 	'register_wucur': 'cli.register_wucur',
 	'register_wucur_wrapper': 'tools.account_generation.register_wucur_wrapper',
 	'run_wucur_pipeline': 'tools.pipeline.run_wucur_pipeline',
-	'wucur': 'wucur_cli.cli',
 	'wucur_client': 'adapters.http.wucur_client',
 }
 
