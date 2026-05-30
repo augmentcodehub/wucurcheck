@@ -71,27 +71,14 @@ def _playwright_login(self, client: httpx.Client, username: str, password: str) 
 
 def _api_login(self, client: httpx.Client, username: str, password: str) -> Result:
     """纯 API 登录（现有 login 代码原样移入此方法）。"""
-    headers = build_headers(self.domain, self.login_path)
-    resp = client.post(
-        f"{self.domain}{self.login_api_path}",
-        headers=headers,
-        json={"username": username, "password": password},
-        timeout=30,
-    )
-    data = parse_response(resp)
-    if resp.status_code != 200 or not data.get("success"):
-        msg = data.get("message", f"HTTP {resp.status_code}")
-        log.warning("Login failed", extra={"username": username, "reason": msg})
-        return Result.fail(msg)
-    if "session" not in client.cookies:
-        log.warning("Login no session cookie", extra={"username": username})
-        return Result.fail("Login succeeded but session cookie not found")
-    user_id = str(data.get("data", {}).get("id", ""))
-    log.info("Login success", extra={"username": username})
-    return Result.ok({"user_id": user_id, "raw": data})
+    # === 将现有 login() 方法的全部代码原样粘贴到这里 ===
+    # === 不做任何修改，只是换了方法名 ===
 ```
 
-**注意：** 现有 `login()` 的完整代码直接移入 `_api_login()`，一字不改。新 `login()` 只是在外面包了一层 WAF 检测。
+**操作方式：**
+1. 将现有 `login()` 方法重命名为 `_api_login()`（代码不改）
+2. 新建 `login()` 方法作为入口（上面的代码）
+3. 新增 `_is_waf_blocked()` 和 `_playwright_login()`
 
 ### Step 2：修改 `.github/workflows/checkin_batch.yml`
 
