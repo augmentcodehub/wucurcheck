@@ -61,7 +61,8 @@ export default {
     const accounts = await repo.list();
     const unchecked = accounts
       .filter((a) => a.status === "active" && (!a.platform || a.platform === "wucur") && !isToday(a.checkin_time))
-      .map((a) => ({ username: a.username, password: a.password || DEFAULT_PASSWORD }));
+      .map((a) => ({ username: a.username, password: a.password || DEFAULT_PASSWORD }))
+      .slice(0, 15);
 
     if (unchecked.length === 0) {
       log.info("cron_all_checked", { total_active: String(accounts.filter((a) => a.status === "active").length) });
