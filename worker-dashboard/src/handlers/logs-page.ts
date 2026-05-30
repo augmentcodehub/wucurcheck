@@ -1,10 +1,8 @@
-/** Logs page — cron execution history + registration logs */
+/** Logs page — cron execution history + failure logs */
 
-import { KV_PREFIX } from "../lib/constants.js";
-import { Res } from "../lib/response.js";
 import { layout } from "../lib/layout.js";
 
-export async function pageLogs(_request: Request, env: Env): Promise<Response> {
+export async function pageLogs(_request: Request, _env: Env): Promise<Response> {
   const content = `
 <div class="space-y-6">
   <h2 class="text-2xl font-bold">📋 执行日志</h2>
@@ -15,14 +13,14 @@ export async function pageLogs(_request: Request, env: Env): Promise<Response> {
   </div>
 
   <div class="bg-base-100 rounded-box shadow p-4">
-    <h3 class="font-bold mb-3">🚀 注册执行记录</h3>
-    <div id="register-logs" class="max-h-96 overflow-y-auto text-sm space-y-2">加载中...</div>
+    <h3 class="font-bold mb-3">❌ 异常日志（最近 50 条）</h3>
+    <div id="fail-logs" class="max-h-96 overflow-y-auto text-sm space-y-1">加载中...</div>
   </div>
 </div>
 
 <script>
 (async function() {
-  // 签到日志
+  // 签到执行记录
   try {
     const r = await fetch("/api/cron-logs");
     const logs = await r.json();
@@ -39,8 +37,20 @@ export async function pageLogs(_request: Request, env: Env): Promise<Response> {
     }
   } catch(e) { document.getElementById("checkin-logs").innerHTML = '<span class="text-error">加载失败</span>'; }
 
-  // 注册日志（复用 cron-logs，后续可扩展）
-  document.getElementById("register-logs").innerHTML = '<span class="text-base-content/50">暂无记录（注册日志记录功能开发中）</span>';
+  // 异常日志
+  try {
+    const r = await fetch("/api/fail-logs");
+    const logs = await r.json();
+    const el = document.getElementById("fail-logs");
+    if (!logs.length) { el.innerHTML = '<span class="text-base-content/50">暂无异常</span>'; }
+    else {
+      el.innerHTML = logs.map(function(l) {
+        const t = new Date(new Date(l.created_at).getTime() + 8*3600000);
+        const ts = String(t.getUTCMonth()+1).padStart(2,'0') + '/' + String(t.getUTCDate()).padStart(2,'0') + ' ' + String(t.getUTCHours()).padStart(2,'0') + ':' + String(t.getUTCMinutes()).padStart(2,'0');
+        return '<div class="flex gap-2 items-center bg-error/10 rounded px-2 py-1"><span class="font-mono text-xs">' + ts + '</span><span class="badge badge-xs badge-ghost">' + (l.username||'') + '</span><span class="text-error text-xs truncate">' + (l.reason||'') + '</span></div>';
+      }).join('');
+    }
+  } catch(e) { document.getElementById("fail-logs").innerHTML = '<span class="text-error">加载失败</span>'; }
 })();
 </script>`;
 

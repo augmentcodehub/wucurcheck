@@ -6,7 +6,7 @@ import { pageAccounts, apiAccounts, apiAccountsTable, apiExportCsv, apiExportKir
 import { apiAccountDetail, apiLogs } from "./handlers/account-detail.js";
 import { apiTrigger } from "./handlers/actions.js";
 import { apiSettings } from "./handlers/settings.js";
-import { apiCronLogs } from "./handlers/cron-logs.js";
+import { apiCronLogs, apiFailLogs } from "./handlers/cron-logs.js";
 import { pageLogs } from "./handlers/logs-page.js";
 import { serveStatic } from "./lib/static.js";
 import { Res } from "./lib/response.js";
@@ -24,6 +24,7 @@ const routes: Route[] = [
   { method: "GET", path: "/api/settings", handler: apiSettings },
   { method: "POST", path: "/api/settings", handler: apiSettings },
   { method: "GET", path: "/api/cron-logs", handler: apiCronLogs },
+  { method: "GET", path: "/api/fail-logs", handler: apiFailLogs },
 ];
 
 export async function router(path: string, method: string, request: Request, env: Env): Promise<Response> {
