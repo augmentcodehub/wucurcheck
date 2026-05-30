@@ -235,3 +235,11 @@ Worker cron (每30分钟，每小时都检查)
 - 部署前必须 `npx tsc --noEmit` 检查编译
 - Worker 使用 `nodejs_compat` flag（支持 AsyncLocalStorage）
 - 静态资源缓存 1 小时，改 JS 后需 `Ctrl+Shift+R` 强刷
+
+---
+
+## 回滚记录
+
+| 日期 | 合并 commit | 回滚命令 | 说明 |
+|------|-------------|----------|------|
+| 2026-05-30 | `3fa0dbc` | `git revert -m 1 3fa0dbc` | CLI 统一重构（typer CLI + Provider Protocol） |
