@@ -56,7 +56,7 @@ def run():
 
             results.append({
                 "username": username,
-                "status": "active" if result.success else "failed",
+                "status": "active",
                 "last_result": result.message or ("签到成功" if result.success else "签到失败"),
                 "balance": result.data.get("balance") if result.data else None,
                 "checkin_time": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()) if checkin_confirmed else None,
@@ -65,7 +65,7 @@ def run():
             log.error("Account exception", extra={"username": username, "error": str(e)[:100]})
             results.append({
                 "username": username,
-                "status": "failed",
+                "status": "active",
                 "last_result": f"异常: {str(e)[:80]}",
                 "balance": None,
                 "checkin_time": None,
