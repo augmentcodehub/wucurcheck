@@ -7,12 +7,14 @@ import { apiAccountDetail, apiLogs } from "./handlers/account-detail.js";
 import { apiTrigger } from "./handlers/actions.js";
 import { apiSettings } from "./handlers/settings.js";
 import { apiCronLogs } from "./handlers/cron-logs.js";
+import { pageLogs } from "./handlers/logs-page.js";
 import { serveStatic } from "./lib/static.js";
 import { Res } from "./lib/response.js";
 import type { Route, RouteHandler } from "./types/index.js";
 
 const routes: Route[] = [
   { method: "GET", path: "/", handler: pageAccounts },
+  { method: "GET", path: "/logs", handler: pageLogs },
   { method: "GET", path: "/api/accounts", handler: apiAccounts },
   { method: "GET", path: "/api/accounts/table", handler: apiAccountsTable },
   { method: "GET", path: "/api/export/csv", handler: apiExportCsv },
