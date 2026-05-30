@@ -24,6 +24,8 @@ export async function apiAccountDetail(request: Request, env: Env): Promise<Resp
   }
 
   const logs = await failLogs.query(account.username);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayLogs = logs.filter((l: { date?: string }) => l.date === todayStr);
   const checkedToday = account.checkin_time
     ? new Date(account.checkin_time).toDateString() === new Date().toDateString()
     : false;
@@ -38,8 +40,8 @@ export async function apiAccountDetail(request: Request, env: Env): Promise<Resp
     lastResult: account.last_result || "-",
     createdAt: account.created_at ? timeAgo(account.created_at) : "-",
     ssoToken: account.sso_token || null,
-    hasLogs: logs.length > 0,
-    logs,
+    hasLogs: todayLogs.length > 0,
+    logs: todayLogs,
   });
 
   return new Response(html, { headers: { "Content-Type": CONTENT_TYPE.HTML } });
