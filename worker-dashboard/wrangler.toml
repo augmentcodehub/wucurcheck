@@ -19,7 +19,7 @@ id = "937c4aa1f8ea4c219117d44f13dbe9cc"
 preview_id = "937c4aa1f8ea4c219117d44f13dbe9cc"
 
 [triggers]
-crons = ["0 * * * *", "*/30 * * * *"]
+crons = ["0 */2 * * *"]
 
 [[rules]]
 type = "Text"
