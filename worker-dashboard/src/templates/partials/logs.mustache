@@ -1,0 +1,21 @@
+<div class="space-y-6">
+  <div class="flex items-center gap-4">
+    <h2 class="text-2xl font-bold">📋 执行日志</h2>
+    <input type="date" id="log-date" value="{{today}}" class="input input-bordered input-sm" onchange="loadAllLogs()"/>
+  </div>
+
+  <div class="bg-base-100 rounded-box shadow p-4">
+    <h3 class="font-bold mb-3">🔄 签到执行记录</h3>
+    <div id="checkin-logs" class="max-h-80 overflow-y-auto text-sm space-y-2">加载中...</div>
+  </div>
+
+  <div class="bg-base-100 rounded-box shadow p-4">
+    <h3 class="font-bold mb-3">🚀 注册记录</h3>
+    <div id="register-logs" class="max-h-80 overflow-y-auto text-sm space-y-1">加载中...</div>
+  </div>
+
+  <div class="bg-base-100 rounded-box shadow p-4">
+    <h3 class="font-bold mb-3">❌ 异常日志</h3>
+    <div id="fail-logs" class="max-h-80 overflow-y-auto text-sm space-y-1">加载中...</div>
+  </div>
+</div>
