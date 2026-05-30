@@ -35,7 +35,16 @@
       </div>
       <ul class="menu p-4 flex-1">
         <li><a href="/" class="text-base">📊 账号管理</a></li>
-        <li><a href="/logs" class="text-base">📋 执行日志</a></li>
+        <li>
+          <details open>
+            <summary class="text-base">📋 执行日志</summary>
+            <ul>
+              <li><a href="/logs/checkin">签到记录</a></li>
+              <li><a href="/logs/register">注册记录</a></li>
+              <li><a href="/logs/errors">异常日志</a></li>
+            </ul>
+          </details>
+        </li>
       </ul>
       <div class="p-4 border-t border-base-300">
         <select class="select select-xs w-full mb-2" onchange="document.documentElement.setAttribute('data-theme',this.value);localStorage.setItem('theme',this.value)">
