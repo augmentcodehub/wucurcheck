@@ -52,7 +52,7 @@ const STRING_FIELDS: ReadonlySet<string> = new Set([
   "username", "password", "balance", "checkin_time", "last_result",
   "access_token", "refresh_token", "client_id", "client_secret",
   "token_expires_at", "last_refresh_at", "subscription_type",
-  "sso_token", "auth_method", "idp", "region",
+  "sso_token", "auth_method", "idp", "region", "register_source",
 ]);
 
 // Account 中所有 number 类型字段

@@ -38,6 +38,7 @@ export async function apiAccountDetail(request: Request, env: Env): Promise<Resp
     checkinStatus: checkedToday ? "✅ 今日已签到" : "❌ 今日未签到",
     lastResult: account.last_result || "-",
     createdAt: account.created_at ? timeAgo(account.created_at) : "-",
+    registerSource: account.register_source || null,
     ssoToken: account.sso_token || null,
     hasLogs: todayLogs.length > 0,
     logs: todayLogs,

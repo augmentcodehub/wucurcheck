@@ -29,6 +29,7 @@ export interface Account {
   auth_method?: string;
   idp?: string;
   region?: string;
+  register_source?: string;
 }
 
 /** Repository interface for account persistence. */

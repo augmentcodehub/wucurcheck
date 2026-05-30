@@ -85,5 +85,5 @@ jobs:
         if [ -z "$CALLBACK_URL" ]; then echo "跳过回调"; exit 0; fi
         if [ ! -f artifacts/results.json ]; then echo "无结果文件"; exit 0; fi
         BODY=$(jq -n --arg secret "$CALLBACK_SECRET" --slurpfile results artifacts/results.json \
-          '{secret: $secret, action: "batch_result", data: {results: $results[0]}}')
+          '{secret: $secret, action: "batch_result", data: {results: [$results[0][] | . + {register_source: "github"}]}}')
         curl -s -X POST "$CALLBACK_URL" -H "Content-Type: application/json" -d "$BODY" && echo "回调成功" || echo "回调失败"

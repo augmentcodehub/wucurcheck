@@ -6,6 +6,7 @@
   <div><span class="font-semibold">签到时间：</span>{{checkinTime}}</div>
   <div><span class="font-semibold">签到状态：</span>{{checkinStatus}}</div>
   <div><span class="font-semibold">注册时间：</span>{{createdAt}}</div>
+  {{#registerSource}}<div><span class="font-semibold">注册来源：</span>{{registerSource}}</div>{{/registerSource}}
   {{#ssoToken}}
   <div><span class="font-semibold">SSO Token：</span><span class="break-all text-xs font-mono">{{ssoToken}}</span></div>
   {{/ssoToken}}
