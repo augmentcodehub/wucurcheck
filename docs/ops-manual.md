@@ -238,6 +238,24 @@ Worker cron (每30分钟，每小时都检查)
 
 ---
 
+## CLI 命令参考
+
+统一入口 `wucur`（安装：`pip install -e .` 或 `uv sync`）：
+
+```bash
+wucur checkin --file accounts.json --output results.json    # 批量签到
+wucur checkin --username x@qq.com --password pw --output results.json  # 单个签到
+wucur register --provider wucur --count 3 --output results.json        # Wucur 注册
+wucur register --provider kiro --count 1 --output results.json         # Kiro 注册
+wucur refresh --target x@ouraihub.com --output results.json            # 刷新单个
+wucur refresh --all --output results.json                              # 刷新全部
+wucur callback --file results.json                                     # 回调 Worker
+```
+
+所有命令输出统一格式 `results.json`，callback 命令读取后 POST 到 Worker。
+
+---
+
 ## 回滚记录
 
 | 日期 | 合并 commit | 回滚命令 | 说明 |

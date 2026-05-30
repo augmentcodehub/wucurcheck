@@ -1,5 +1,7 @@
 # Wucur GitHub 自动签到教程
 
+> **⚠️ 2026-05-30 更新：** 签到 workflow 已重构为使用统一 CLI。当前 `checkin_batch.yml` 通过 `wucur checkin --file accounts.json` 执行签到，`wucur callback --file results.json` 执行回调。本文档中关于 PowerShell 脚本和手动 curl 回调的内容已过时，仅供参考。
+
 本文档只针对 `http://wucur.com:6543` 这个站点，说明如何在 GitHub Actions 中实现：
 
 - 每天自动登录
