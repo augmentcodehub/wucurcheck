@@ -49,3 +49,18 @@ async function delUser(username) {
 }
 
 loadCron();
+loadCronLogs();
+
+async function loadCronLogs() {
+  const el = document.getElementById("cron-logs");
+  try {
+    const r = await fetch("/api/cron-logs"); const logs = await r.json();
+    if (!logs.length) { el.innerHTML = '<span class="text-base-content/50">暂无记录</span>'; return; }
+    el.innerHTML = logs.map(function(l) {
+      const t = new Date(new Date(l.time).getTime() + 8*3600000);
+      const ts = String(t.getUTCMonth()+1).padStart(2,'0') + '/' + String(t.getUTCDate()).padStart(2,'0') + ' ' + String(t.getUTCHours()).padStart(2,'0') + ':' + String(t.getUTCMinutes()).padStart(2,'0');
+      const icon = l.ok ? '✅' : '❌';
+      return '<div class="flex gap-2 items-center bg-base-200 rounded px-2 py-1"><span>' + icon + '</span><span class="font-mono">' + ts + '</span><span>签到 ' + l.count + ' 个</span><span class="text-base-content/50 truncate">' + l.accounts.slice(0,3).join(', ') + (l.count > 3 ? '...' : '') + '</span></div>';
+    }).join('');
+  } catch(e) { el.innerHTML = '<span class="text-error">加载失败</span>'; }
+}

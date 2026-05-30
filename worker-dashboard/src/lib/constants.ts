@@ -8,6 +8,7 @@ export const KV_PREFIX = {
   SESSION: "session:",
   USER: "user:",
   LOCK: "lock:",
+  CRON_LOG: "cron_log:",
 } as const;
 
 export const KV_KEY = {

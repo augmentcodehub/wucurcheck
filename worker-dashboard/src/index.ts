@@ -3,7 +3,7 @@
  */
 
 import { log, withLogContext } from "./lib/log.js";
-import { KV_KEY, DEFAULT_PASSWORD } from "./lib/constants.js";
+import { KV_KEY, KV_PREFIX, DEFAULT_PASSWORD } from "./lib/constants.js";
 import { handleLogin, handleLogout, authMiddleware } from "./services/auth-service.js";
 import { handleCallback } from "./handlers/callback.js";
 import { apiTrigger } from "./handlers/actions.js";
@@ -75,6 +75,16 @@ export default {
       inputs: { accounts_json: JSON.stringify(unchecked) },
     });
     log.info("cron_checkin_dispatch", { ok: String(result.ok), count: String(unchecked.length), error: result.error || "" });
+
+    // 写入执行日志
+    const logEntry = {
+      time: new Date().toISOString(),
+      count: unchecked.length,
+      accounts: unchecked.map((a) => a.username),
+      ok: result.ok,
+      error: result.error || null,
+    };
+    await env.KV.put(`${KV_PREFIX.CRON_LOG}${Date.now()}`, JSON.stringify(logEntry), { expirationTtl: 7 * 86400 });
       } catch (e) {
         const msg = e instanceof Error ? e.message : "unknown";
         log.error("cron_error", { error: msg });
