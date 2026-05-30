@@ -3,7 +3,7 @@
  */
 
 import { log, withLogContext } from "./lib/log.js";
-import { KV_KEY, KV_PREFIX, DEFAULT_PASSWORD } from "./lib/constants.js";
+import { KV_PREFIX, DEFAULT_PASSWORD } from "./lib/constants.js";
 import { handleLogin, handleLogout, authMiddleware } from "./services/auth-service.js";
 import { handleCallback } from "./handlers/callback.js";
 import { apiTrigger } from "./handlers/actions.js";
@@ -46,15 +46,7 @@ export default {
   async scheduled(_event: ScheduledController, env: Env, _ctx: ExecutionContext): Promise<void> {
     return withLogContext({ trigger: "cron", rid: crypto.randomUUID().slice(0, 8) }, async () => {
       try {
-      const config = await env.KV.get<number[]>(KV_KEY.CRON_HOUR, "json");
-      const hours = config || [0];
-      const currentHour = new Date().getUTCHours();
-
-      if (!hours.includes(currentHour)) {
-        log.info("cron_skip", { hour: String(currentHour), configured: hours.join(",") });
-        return;
-      }
-      log.info("cron_triggered", { hour: String(currentHour) });
+      log.info("cron_triggered");
 
     const callbackUrl = `${env.WORKER_URL}/callback`;
     const repo = new KvAccountRepository(env.KV);
