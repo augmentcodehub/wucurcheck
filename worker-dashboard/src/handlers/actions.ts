@@ -39,7 +39,7 @@ async function handleDeleteFailed(_target: string, _body: Record<string, unknown
 async function handleCheckinUnchecked(_target: string, _body: Record<string, unknown>, env: Env, request: Request): Promise<Response> {
   const repo = new KvAccountRepository(env.KV);
   const accounts = await repo.list();
-  const wucurActive = accounts.filter((a) => a.status === "active" && (!a.platform || a.platform === "wucur"));
+  const wucurActive = accounts.filter((a) => (!a.platform || a.platform === "wucur") && a.status !== "suspended");
   const unchecked = wucurActive
     .filter((a) => !isToday(a.checkin_time))
     .map((a) => ({ username: a.username, password: a.password || DEFAULT_PASSWORD }));

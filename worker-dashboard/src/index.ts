@@ -52,7 +52,7 @@ export default {
     const repo = new KvAccountRepository(env.KV);
     const accounts = await repo.list();
     const unchecked = accounts
-      .filter((a) => a.status === "active" && (!a.platform || a.platform === "wucur") && !isToday(a.checkin_time))
+      .filter((a) => (!a.platform || a.platform === "wucur") && a.status !== "suspended" && !isToday(a.checkin_time))
       .map((a) => ({ username: a.username, password: a.password || DEFAULT_PASSWORD }))
       .slice(0, 15);
 
