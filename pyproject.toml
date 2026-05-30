@@ -7,6 +7,7 @@ dependencies = [
   "cbor2>=6.1.1",
   "httpx[http2]>=0.24.0",
   "playwright>=1.40.0",
+  "pycore",
   "python-dotenv>=1.0.0",
   "socksio>=1.0.0",
   "typer>=0.15.0",
@@ -23,6 +24,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.uv]
 package = true
+
+[tool.uv.sources]
+pycore = { path = "../pycore" }
 
 [tool.setuptools]
 py-modules = ["checkin"]
