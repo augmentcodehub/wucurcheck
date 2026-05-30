@@ -1,6 +1,7 @@
 """Provider auto-discovery."""
 from providers._registry import provider_registry
 from providers.wucur import WucurProvider  # noqa: F401
+from providers.kiro import KiroProvider  # noqa: F401
 
 
 def get_provider(name: str):

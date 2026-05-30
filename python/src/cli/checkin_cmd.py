@@ -7,7 +7,11 @@ from typing import Optional
 
 import typer
 
+from core.result_record import ResultRecord
 from pipelines.checkin import CheckinPipeline
+from utils.logger import get_logger
+
+log = get_logger('cli.checkin_cmd')
 
 
 def checkin(
@@ -28,27 +32,47 @@ def checkin(
 		typer.echo('Error: provide --file or --username', err=True)
 		raise typer.Exit(1)
 
+	log.info('Checkin start', extra={'count': len(accounts)})
 	pipeline = CheckinPipeline()
-	results = []
+	results = _run_batch(pipeline, accounts)
 
+	output.parent.mkdir(parents=True, exist_ok=True)
+	output.write_text(json.dumps([r.to_dict() for r in results], ensure_ascii=False, indent=2), encoding='utf-8')
+	log.info('Checkin done', extra={'count': len(results)})
+	typer.echo(f'Checkin done: {len(results)} account(s) → {output}')
+
+
+def _run_batch(pipeline: CheckinPipeline, accounts: list[dict]) -> list[ResultRecord]:
+	"""Execute checkin for each account with rate limiting."""
+	results: list[ResultRecord] = []
 	for i, acct in enumerate(accounts):
 		uname = acct.get('username', '')
 		pwd = acct.get('password', '')
-		try:
-			result = pipeline.execute(uname, pwd)
-			results.append({
-				'username': uname,
-				'status': 'active',
-				'last_result': result.message or ('签到成功' if result.success else '签到失败'),
-				'balance': result.data.get('balance') if result.data else None,
-				'checkin_time': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()) if result.success else None,
-			})
-		except Exception as e:
-			results.append({'username': uname, 'status': 'active', 'last_result': f'异常: {str(e)[:80]}'})
+		record = _checkin_one(pipeline, uname, pwd)
+		results.append(record)
 
 		if i < len(accounts) - 1:
 			time.sleep(random.randint(15, 30) if (i + 1) % 15 != 0 else 120)
 
-	output.parent.mkdir(parents=True, exist_ok=True)
-	output.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding='utf-8')
-	typer.echo(f'Checkin done: {len(results)} account(s) → {output}')
+	return results
+
+
+def _checkin_one(pipeline: CheckinPipeline, username: str, password: str) -> ResultRecord:
+	"""Single account checkin — returns ResultRecord, never raises."""
+	try:
+		result = pipeline.execute(username, password)
+	except Exception as e:
+		log.error('Checkin exception', extra={'username': username, 'error': str(e)[:100]})
+		return ResultRecord(username=username, last_result=f'异常: {str(e)[:80]}')
+
+	if result.success:
+		log.info('Checkin success', extra={'username': username, 'result_msg': result.message})
+	else:
+		log.warning('Checkin failed', extra={'username': username, 'reason': result.message})
+
+	return ResultRecord(
+		username=username,
+		last_result=result.message or ('签到成功' if result.success else '签到失败'),
+		balance=result.data.get('balance') if result.data else None,
+		checkin_time=time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()) if result.success else None,
+	)
