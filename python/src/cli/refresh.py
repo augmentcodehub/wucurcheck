@@ -7,6 +7,7 @@ from typing import Optional
 import httpx
 import typer
 
+from core.result import Result
 from core.result_record import ResultRecord
 from utils.logger import get_logger
 
@@ -61,15 +62,15 @@ class OidcRefresher:
 	def __init__(self, client: httpx.Client):
 		self._client = client
 
-	def refresh(self, account: dict) -> dict:
-		"""Returns {'success': bool, 'accessToken'?: str, 'refreshToken'?: str, 'error'?: str}."""
+	def refresh(self, account: dict) -> Result:
+		"""Refresh OIDC token. Returns Result with data={'accessToken', 'refreshToken'} on success."""
 		rt = account.get('refresh_token', '')
 		cid = account.get('client_id', '')
 		cs = account.get('client_secret', '')
 		region = account.get('region', 'us-east-1')
 
 		if not rt or not cid or not cs:
-			return {'success': False, 'error': 'Missing credentials'}
+			return Result.fail('Missing credentials')
 
 		url = self.OIDC_URL.replace('{region}', region)
 		try:
@@ -78,18 +79,17 @@ class OidcRefresher:
 				'refreshToken': rt, 'grantType': 'refresh_token',
 			}, timeout=30)
 		except httpx.TimeoutException:
-			return {'success': False, 'error': 'OIDC request timeout'}
+			return Result.fail('OIDC request timeout')
 		except httpx.ConnectError as e:
-			return {'success': False, 'error': f'Connect error: {str(e)[:60]}'}
+			return Result.fail(f'Connect error: {str(e)[:60]}')
 
 		if r.status_code == 200:
 			data = r.json()
-			return {
-				'success': True,
+			return Result.ok({
 				'accessToken': data.get('accessToken'),
 				'refreshToken': data.get('refreshToken', rt),
-			}
-		return {'success': False, 'error': f'HTTP {r.status_code}'}
+			})
+		return Result.fail(f'HTTP {r.status_code}')
 
 
 # --- CLI command ---
@@ -137,14 +137,14 @@ def _refresh_accounts(kv: KvClient, oidc: OidcRefresher, keys: list[str]) -> lis
 
 		username = account.get('username', '')
 		r = oidc.refresh(account)
-		if r['success']:
+		if r.success:
 			log.info('Refresh success', extra={'username': username})
 			results.append(ResultRecord(
 				username=username, last_result='Token 刷新成功',
-				refreshToken=r['refreshToken'], accessToken=r['accessToken'],
+				refreshToken=r.data['refreshToken'], accessToken=r.data['accessToken'],
 			))
 		else:
-			log.warning('Refresh failed', extra={'username': username, 'error': r['error']})
-			results.append(ResultRecord(username=username, last_result=f"刷新失败: {r['error']}"))
+			log.warning('Refresh failed', extra={'username': username, 'error': r.message})
+			results.append(ResultRecord(username=username, last_result=f'刷新失败: {r.message}'))
 
 	return results

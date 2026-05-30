@@ -12,7 +12,7 @@ from utils.logger import get_logger
 
 log = get_logger('provider.kiro')
 
-_NODE_REGISTER_DIR = Path(__file__).resolve().parents[2] / 'node-register'
+_NODE_REGISTER_DIR = Path(os.environ.get('NODE_REGISTER_DIR', str(Path(__file__).resolve().parents[2] / 'node-register')))
 
 
 @provider_registry.register

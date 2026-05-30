@@ -8,22 +8,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'src'))
 
 from typer.testing import CliRunner
 from cli.app import app
+from core.result import Result
 
 runner = CliRunner()
 
 
 class TestRegisterWucur:
-	@patch('cli.register.httpx.Client')
-	def test_register_wucur_success(self, mock_client_cls, tmp_path):
+	@patch('providers.wucur.WucurProvider.register')
+	def test_register_wucur_success(self, mock_register, tmp_path):
 		output = tmp_path / 'reg.json'
-		mock_resp = MagicMock()
-		mock_resp.status_code = 200
-		mock_resp.json.return_value = {'success': True, 'message': 'ok'}
-		mock_client = MagicMock()
-		mock_client.__enter__ = MagicMock(return_value=mock_client)
-		mock_client.__exit__ = MagicMock(return_value=False)
-		mock_client.post.return_value = mock_resp
-		mock_client_cls.return_value = mock_client
+		mock_register.return_value = Result.ok({'success': True})
 
 		result = runner.invoke(app, ['register', '--provider', 'wucur', '--count', '1', '--output', str(output)])
 		assert result.exit_code == 0
@@ -34,17 +28,10 @@ class TestRegisterWucur:
 		assert data[0]['last_result'] == '注册成功'
 		assert '@qq.com' in data[0]['username']
 
-	@patch('cli.register.httpx.Client')
-	def test_register_wucur_failure(self, mock_client_cls, tmp_path):
+	@patch('providers.wucur.WucurProvider.register')
+	def test_register_wucur_failure(self, mock_register, tmp_path):
 		output = tmp_path / 'reg.json'
-		mock_resp = MagicMock()
-		mock_resp.status_code = 200
-		mock_resp.json.return_value = {'success': False, 'message': '用户已存在'}
-		mock_client = MagicMock()
-		mock_client.__enter__ = MagicMock(return_value=mock_client)
-		mock_client.__exit__ = MagicMock(return_value=False)
-		mock_client.post.return_value = mock_resp
-		mock_client_cls.return_value = mock_client
+		mock_register.return_value = Result.fail('用户已存在')
 
 		result = runner.invoke(app, ['register', '--provider', 'wucur', '--count', '1', '--output', str(output)])
 		assert result.exit_code == 0
@@ -78,9 +65,7 @@ class TestRegisterKiro:
 		mock_run.return_value = MagicMock(returncode=0, stderr='')
 
 		with patch.dict('os.environ', {'EMAIL_API_KEY': 'key123'}, clear=False):
-			# Also need to patch the dist check
 			with patch('providers.kiro._NODE_REGISTER_DIR', tmp_path):
-				# Create fake dist/index.js
 				(tmp_path / 'dist').mkdir()
 				(tmp_path / 'dist' / 'index.js').write_text('')
 				result = runner.invoke(app, ['register', '--provider', 'kiro', '--count', '1', '--output', str(output)])
