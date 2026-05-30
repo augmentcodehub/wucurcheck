@@ -41,3 +41,15 @@ export async function apiFailLogs(_request: Request, env: Env): Promise<Response
 
   return Res.json(logs);
 }
+
+export async function apiRegisterLogs(_request: Request, env: Env): Promise<Response> {
+  const { keys } = await env.KV.list({ prefix: KV_PREFIX.REGISTER_LOG, limit: 30 });
+  const logs: Array<{ time: string; username: string; platform: string; status: string; error: string | null }> = [];
+
+  for (const key of keys.reverse()) {
+    const entry = await env.KV.get<typeof logs[number]>(key.name, "json");
+    if (entry) logs.push(entry);
+  }
+
+  return Res.json(logs);
+}

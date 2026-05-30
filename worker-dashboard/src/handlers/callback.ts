@@ -2,6 +2,7 @@
 
 import { log } from "../lib/log.js";
 import { timingSafeEqual } from "../lib/crypto.js";
+import { KV_PREFIX } from "../lib/constants.js";
 import { KvAccountRepository } from "../repositories/kv-account-repository.js";
 import { KvFailLogRepository } from "../repositories/kv-fail-log-repository.js";
 import { releaseLock } from "../lib/trigger-lock.js";
@@ -158,6 +159,12 @@ async function handleBatchResult(data: Record<string, unknown>, env: Env): Promi
 
       await repo.put(username, fields);
 
+      // 新注册的 kiro 账号写入注册日志
+      if (!existing && fields.platform === "kiro") {
+        const logEntry = { time: new Date().toISOString(), username, platform: "kiro", status: fields.status || "active", error: fields.status === "failed" ? (fields.last_result || null) : null };
+        await env.KV.put(`${KV_PREFIX.REGISTER_LOG}${Date.now()}`, JSON.stringify(logEntry), { expirationTtl: 7 * 86400 });
+      }
+
       if (item.status === "failed") {
         await failLogs.write(username, { date: new Date().toISOString().slice(0, 10), reason: str(item.last_result) || str(item.error) || "未知" });
       }
@@ -187,6 +194,11 @@ async function handleRegister(data: Record<string, unknown>, env: Env): Promise<
   const repo = new KvAccountRepository(env.KV);
   await repo.put(username, fields);
   log.info("callback_register_done", { username, platform: fields.platform || "", has_password: String(!!fields.password) });
+
+  // 写入注册日志
+  const logEntry = { time: new Date().toISOString(), username, platform: fields.platform || "unknown", status: fields.status || "active", error: fields.status === "failed" ? (fields.last_result || null) : null };
+  await env.KV.put(`${KV_PREFIX.REGISTER_LOG}${Date.now()}`, JSON.stringify(logEntry), { expirationTtl: 7 * 86400 });
+
   await releaseLock(env, `register:${username}`);
 }
 
