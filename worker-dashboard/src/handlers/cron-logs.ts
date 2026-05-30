@@ -1,56 +1,28 @@
-/** Cron execution logs + failure logs API */
+/** Log APIs — backed by D1 */
 
-import { KV_PREFIX } from "../lib/constants.js";
+import { D1LogRepository } from "../repositories/d1-log-repository.js";
 import { Res } from "../lib/response.js";
 
-interface CronLogEntry {
-  time: string;
-  count: number;
-  accounts: string[];
-  ok: boolean;
-  error: string | null;
-}
-
-interface FailLogEntry {
-  username: string;
-  date: string;
-  reason: string;
-  created_at: string;
-}
-
-export async function apiCronLogs(_request: Request, env: Env): Promise<Response> {
-  const { keys } = await env.KV.list({ prefix: KV_PREFIX.CRON_LOG, limit: 20 });
-  const logs: CronLogEntry[] = [];
-
-  for (const key of keys.reverse()) {
-    const entry = await env.KV.get<CronLogEntry>(key.name, "json");
-    if (entry) logs.push(entry);
-  }
-
+export async function apiCronLogs(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const date = url.searchParams.get("date") || new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+  const repo = new D1LogRepository(env.DB);
+  const logs = await repo.query("checkin", date);
   return Res.json(logs);
 }
 
-export async function apiFailLogs(_request: Request, env: Env): Promise<Response> {
-  const { keys } = await env.KV.list({ prefix: KV_PREFIX.FAIL_LOG, limit: 50 });
-  const logs: FailLogEntry[] = [];
-
-  for (const key of keys) {
-    const entry = await env.KV.get<FailLogEntry>(key.name, "json");
-    if (entry) logs.push(entry);
-  }
-
-  logs.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
+export async function apiRegisterLogs(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const date = url.searchParams.get("date") || new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+  const repo = new D1LogRepository(env.DB);
+  const logs = await repo.query("register", date);
   return Res.json(logs);
 }
 
-export async function apiRegisterLogs(_request: Request, env: Env): Promise<Response> {
-  const { keys } = await env.KV.list({ prefix: KV_PREFIX.REGISTER_LOG, limit: 30 });
-  const logs: Array<{ time: string; username: string; platform: string; status: string; error: string | null }> = [];
-
-  for (const key of keys.reverse()) {
-    const entry = await env.KV.get<typeof logs[number]>(key.name, "json");
-    if (entry) logs.push(entry);
-  }
-
+export async function apiFailLogs(request: Request, env: Env): Promise<Response> {
+  const url = new URL(request.url);
+  const date = url.searchParams.get("date") || new Date(Date.now() + 8 * 3600000).toISOString().slice(0, 10);
+  const repo = new D1LogRepository(env.DB);
+  const logs = await repo.query("error", date);
   return Res.json(logs);
 }

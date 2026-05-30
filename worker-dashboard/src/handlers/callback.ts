@@ -2,7 +2,6 @@
 
 import { log } from "../lib/log.js";
 import { timingSafeEqual } from "../lib/crypto.js";
-import { KV_PREFIX } from "../lib/constants.js";
 import { KvAccountRepository } from "../repositories/kv-account-repository.js";
 import { KvFailLogRepository } from "../repositories/kv-fail-log-repository.js";
 import { releaseLock } from "../lib/trigger-lock.js";
@@ -116,6 +115,8 @@ async function handleCheckin(data: Record<string, unknown>, env: Env): Promise<v
   if (data.status === "failed") {
     const failLogs = new KvFailLogRepository(env.KV);
     await failLogs.write(username, { date: new Date().toISOString().slice(0, 10), reason: str(data.last_result) || "未知" });
+    const { D1LogRepository } = await import("../repositories/d1-log-repository.js");
+    await new D1LogRepository(env.DB).insert({ type: "error", time: new Date().toISOString(), username, message: str(data.last_result) || "未知" });
   }
   await releaseLock(env, `checkin:${username}`);
   await releaseLock(env, "checkin:_all");
@@ -161,12 +162,15 @@ async function handleBatchResult(data: Record<string, unknown>, env: Env): Promi
 
       // 新注册的 kiro 账号写入注册日志
       if (!existing && fields.platform === "kiro") {
-        const logEntry = { time: new Date().toISOString(), username, platform: "kiro", status: fields.status || "active", error: fields.status === "failed" ? (fields.last_result || null) : null };
-        await env.KV.put(`${KV_PREFIX.REGISTER_LOG}${Date.now()}`, JSON.stringify(logEntry), { expirationTtl: 7 * 86400 });
+        const { D1LogRepository } = await import("../repositories/d1-log-repository.js");
+        const logRepo = new D1LogRepository(env.DB);
+        await logRepo.insert({ type: "register", time: new Date().toISOString(), username, platform: "kiro", status: fields.status || "active", message: fields.last_result || undefined });
       }
 
       if (item.status === "failed") {
         await failLogs.write(username, { date: new Date().toISOString().slice(0, 10), reason: str(item.last_result) || str(item.error) || "未知" });
+        const { D1LogRepository } = await import("../repositories/d1-log-repository.js");
+        await new D1LogRepository(env.DB).insert({ type: "error", time: new Date().toISOString(), username, message: str(item.last_result) || str(item.error) || "未知" });
       }
     } catch (e) {
       const username = isObject(item) ? str(item.username) || str(item.email) || "unknown" : "unknown";
@@ -195,9 +199,10 @@ async function handleRegister(data: Record<string, unknown>, env: Env): Promise<
   await repo.put(username, fields);
   log.info("callback_register_done", { username, platform: fields.platform || "", has_password: String(!!fields.password) });
 
-  // 写入注册日志
-  const logEntry = { time: new Date().toISOString(), username, platform: fields.platform || "unknown", status: fields.status || "active", error: fields.status === "failed" ? (fields.last_result || null) : null };
-  await env.KV.put(`${KV_PREFIX.REGISTER_LOG}${Date.now()}`, JSON.stringify(logEntry), { expirationTtl: 7 * 86400 });
+  // 写入注册日志到 D1
+  const { D1LogRepository } = await import("../repositories/d1-log-repository.js");
+  const logRepo = new D1LogRepository(env.DB);
+  await logRepo.insert({ type: "register", time: new Date().toISOString(), username, platform: fields.platform || "unknown", status: fields.status || "active", message: fields.last_result || undefined });
 
   await releaseLock(env, `register:${username}`);
 }

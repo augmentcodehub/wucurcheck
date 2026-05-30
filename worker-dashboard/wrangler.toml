@@ -25,3 +25,8 @@ crons = ["*/10 * * * *"]
 type = "Text"
 globs = ["**/*.mustache", "**/*.island.js"]
 fallthrough = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "worker-dashboard-logs"
+database_id = "ab93218d-7896-4305-8fa8-ddbad1d0acd3"

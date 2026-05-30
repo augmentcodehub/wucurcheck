@@ -22,6 +22,7 @@ interface Env extends __BaseEnv_Env {
   WORKER_SECRET?: string;
   GITLAB_PROJECT_ID?: string;
   GITLAB_TRIGGER_TOKEN?: string;
+  DB: D1Database;
 }
 declare module "node:async_hooks" {
 	export class AsyncLocalStorage<T> {
