@@ -24,11 +24,11 @@ def register(
 	email_domain: str = typer.Option('ouraihub.com', '--email-domain', help='Email domain for kiro'),
 ):
 	"""Register new accounts via wucur or kiro provider."""
-	log.info('Register start', extra={'provider': provider, 'count': count})
+	log.info('Register start', provider=provider, count=count)
 
 	p = get_provider(provider)
 	if not p:
-		log.error('Unknown provider', extra={'provider': provider})
+		log.error('Unknown provider', provider=provider)
 		typer.echo(f'Error: unknown provider {provider}', err=True)
 		raise typer.Exit(1)
 
@@ -41,7 +41,7 @@ def register(
 
 	output.parent.mkdir(parents=True, exist_ok=True)
 	output.write_text(json.dumps([r.to_dict() for r in results], ensure_ascii=False, indent=2), encoding='utf-8')
-	log.info('Register done', extra={'count': len(results), 'output': str(output)})
+	log.info('Register done', count=len(results), output=str(output))
 	typer.echo(f'Registered {len(results)} account(s) → {output}')
 
 

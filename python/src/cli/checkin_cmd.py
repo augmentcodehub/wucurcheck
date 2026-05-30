@@ -32,13 +32,13 @@ def checkin(
 		typer.echo('Error: provide --file or --username', err=True)
 		raise typer.Exit(1)
 
-	log.info('Checkin start', extra={'count': len(accounts)})
+	log.info('Checkin start', count=len(accounts))
 	pipeline = CheckinPipeline()
 	results = _run_batch(pipeline, accounts)
 
 	output.parent.mkdir(parents=True, exist_ok=True)
 	output.write_text(json.dumps([r.to_dict() for r in results], ensure_ascii=False, indent=2), encoding='utf-8')
-	log.info('Checkin done', extra={'count': len(results)})
+	log.info('Checkin done', count=len(results))
 	typer.echo(f'Checkin done: {len(results)} account(s) → {output}')
 
 
@@ -62,13 +62,13 @@ def _checkin_one(pipeline: CheckinPipeline, username: str, password: str) -> Res
 	try:
 		result = pipeline.execute(username, password)
 	except Exception as e:
-		log.error('Checkin exception', extra={'username': username, 'error': str(e)[:100]})
+		log.error('Checkin exception', username=username, error=str(e)[:100])
 		return ResultRecord(username=username, last_result=f'异常: {str(e)[:80]}')
 
 	if result.success:
-		log.info('Checkin success', extra={'username': username, 'result_msg': result.message})
+		log.info('Checkin success', username=username, result_msg=result.message)
 	else:
-		log.warning('Checkin failed', extra={'username': username, 'reason': result.message})
+		log.warning('Checkin failed', username=username, reason=result.message)
 
 	return ResultRecord(
 		username=username,

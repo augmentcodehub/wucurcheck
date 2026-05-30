@@ -33,7 +33,7 @@ class KvClient:
 				params['cursor'] = cursor
 			r = self._client.get(f'{self._base}/keys', headers=self._headers, params=params)
 			if r.status_code != 200:
-				log.warning('KV list failed', extra={'status': r.status_code})
+				log.warning('KV list failed', status=r.status_code)
 				break
 			data = r.json()
 			keys.extend(k['name'] for k in data.get('result', []))
@@ -50,7 +50,7 @@ class KvClient:
 		try:
 			return r.json()
 		except (json.JSONDecodeError, ValueError):
-			log.warning('KV parse failed', extra={'key': key})
+			log.warning('KV parse failed', key=key)
 			return None
 
 
@@ -112,7 +112,7 @@ def refresh(
 		typer.echo('Error: provide --target or --all', err=True)
 		raise typer.Exit(1)
 
-	log.info('Refresh start', extra={'target': target or 'all'})
+	log.info('Refresh start', target=target or 'all')
 
 	with httpx.Client(http2=True, timeout=30) as client:
 		kv = KvClient(client, cf_account_id, kv_namespace_id, cf_api_token)
@@ -123,7 +123,7 @@ def refresh(
 
 	output.parent.mkdir(parents=True, exist_ok=True)
 	output.write_text(json.dumps([r.to_dict() for r in results], ensure_ascii=False, indent=2), encoding='utf-8')
-	log.info('Refresh done', extra={'count': len(results)})
+	log.info('Refresh done', count=len(results))
 	typer.echo(f'Refresh done: {len(results)} account(s) → {output}')
 
 
@@ -138,13 +138,13 @@ def _refresh_accounts(kv: KvClient, oidc: OidcRefresher, keys: list[str]) -> lis
 		username = account.get('username', '')
 		r = oidc.refresh(account)
 		if r.success:
-			log.info('Refresh success', extra={'username': username})
+			log.info('Refresh success', username=username)
 			results.append(ResultRecord(
 				username=username, last_result='Token 刷新成功',
 				refreshToken=r.data['refreshToken'], accessToken=r.data['accessToken'],
 			))
 		else:
-			log.warning('Refresh failed', extra={'username': username, 'error': r.message})
+			log.warning('Refresh failed', username=username, error=r.message)
 			results.append(ResultRecord(username=username, last_result=f'刷新失败: {r.message}'))
 
 	return results

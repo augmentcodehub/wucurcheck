@@ -39,19 +39,19 @@ class KiroProvider:
 			'--output', str(tmp_output),
 		]
 
-		log.info('Subprocess start', extra={'cmd': 'node dist/index.js', 'count': count})
+		log.info('Subprocess start', cmd='node dist/index.js', count=count)
 		try:
 			proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
 		except subprocess.TimeoutExpired:
-			log.error('Subprocess timeout', extra={'timeout_sec': 300})
+			log.error('Subprocess timeout', timeout_sec=300)
 			return Result.fail('Node 注册超时')
 
 		if not tmp_output.exists():
-			log.error('No output file', extra={'stderr': proc.stderr[:200]})
+			log.error('No output file', stderr=proc.stderr[:200])
 			return Result.fail(f'Node 注册失败: {proc.stderr[:200]}')
 
 		node_results = json.loads(tmp_output.read_text(encoding='utf-8'))
-		log.info('Subprocess done', extra={'result_count': len(node_results)})
+		log.info('Subprocess done', result_count=len(node_results))
 		return Result.ok({'node_results': node_results})
 
 	def login(self, client, username: str, password: str) -> Result:
