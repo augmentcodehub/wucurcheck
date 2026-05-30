@@ -35,3 +35,4 @@ wucur_accounts.sqlite3.bak-*
 
 docs/ops-manual.md
 .DS_Store
+docs/database-schema.md
