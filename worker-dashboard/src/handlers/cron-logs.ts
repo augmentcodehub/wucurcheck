@@ -34,11 +34,12 @@ export async function apiFailLogs(_request: Request, env: Env): Promise<Response
   const { keys } = await env.KV.list({ prefix: KV_PREFIX.FAIL_LOG, limit: 50 });
   const logs: FailLogEntry[] = [];
 
-  for (const key of keys.reverse()) {
+  for (const key of keys) {
     const entry = await env.KV.get<FailLogEntry>(key.name, "json");
     if (entry) logs.push(entry);
   }
 
+  logs.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""));
   return Res.json(logs);
 }
 
