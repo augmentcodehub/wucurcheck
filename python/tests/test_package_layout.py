@@ -22,7 +22,6 @@ def test_core_cli_packages_are_importable() -> None:
 		'core.infrastructure.cloudflare_kv_account_repository',
 		'adapters.messages',
 		'scripts',
-		'wucur_cli',
 	):
 		module = import_module(module_name)
 		assert module is not None

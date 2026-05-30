@@ -26,14 +26,23 @@ jobs:
         python-version: '3.11'
 
     - name: 安装依赖
-      run: pip install httpx
+      run: pip install -e .
 
     - name: 刷新 Token
       env:
         CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
         CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
         KV_NAMESPACE_ID: ${{ secrets.KV_NAMESPACE_ID }}
+      run: |
+        if [ -n "${{ inputs.target }}" ]; then
+          wucur refresh --target "${{ inputs.target }}" --output results.json
+        else
+          wucur refresh --all --output results.json
+        fi
+
+    - name: 回调 Worker Dashboard
+      if: always()
+      env:
         CALLBACK_URL: ${{ inputs.callback_url || secrets.WORKER_CALLBACK_URL }}
         CALLBACK_SECRET: ${{ secrets.WORKER_CALLBACK_SECRET }}
-        TARGET: ${{ inputs.target }}
-      run: python python/src/scripts/kiro_refresh.py
+      run: wucur callback --file results.json

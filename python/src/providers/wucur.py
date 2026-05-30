@@ -18,11 +18,36 @@ log = get_logger("provider.wucur")
 class WucurProvider:
     name = "wucur"
     domain = "http://wucur.com:6543"
+    register_path = "/api/user/register"
     login_path = "/login"
     login_api_path = "/api/user/login"
     checkin_path = "/api/user/checkin"
     user_info_path = "/api/user/self"
     api_user_key = "new-api-user"
+
+    def register(self, client: httpx.Client, username: str, password: str) -> Result:
+        """注册新账号。"""
+        try:
+            resp = client.post(
+                f"{self.domain}{self.register_path}",
+                json={"username": username, "password": password},
+                headers={"Content-Type": "application/json"},
+                timeout=30,
+            )
+        except httpx.TimeoutException:
+            log.error("Register timeout", extra={"username": username})
+            return Result.fail("注册超时")
+        except httpx.ConnectError as e:
+            log.error("Register connect error", extra={"username": username, "error": str(e)[:80]})
+            return Result.fail(f"连接失败: {str(e)[:50]}")
+
+        data = parse_response(resp)
+        if resp.status_code == 200 and data.get("success"):
+            log.info("Register success", extra={"username": username})
+            return Result.ok(data)
+        msg = data.get("message", f"HTTP {resp.status_code}")
+        log.warning("Register failed", extra={"username": username, "reason": msg})
+        return Result.fail(msg)
 
     def login(self, client: httpx.Client, username: str, password: str) -> Result:
         """登录并设置 session cookie 到 client 上。"""
