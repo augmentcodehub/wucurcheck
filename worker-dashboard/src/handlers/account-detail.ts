@@ -2,7 +2,7 @@
 
 import Mustache from "mustache";
 import { KvAccountRepository } from "../repositories/kv-account-repository.js";
-import { KvFailLogRepository } from "../repositories/kv-fail-log-repository.js";
+import { D1LogRepository } from "../repositories/d1-log-repository.js";
 import { badge, timeAgo, esc } from "../views/helpers.js";
 import { log } from "../lib/log.js";
 import { Res } from "../lib/response.js";
@@ -15,7 +15,6 @@ export async function apiAccountDetail(request: Request, env: Env): Promise<Resp
   if (!username) return Res.notFound();
 
   const accounts = new KvAccountRepository(env.KV);
-  const failLogs = new KvFailLogRepository(env.KV);
 
   const account = await accounts.get(username);
   if (!account) {
@@ -23,9 +22,9 @@ export async function apiAccountDetail(request: Request, env: Env): Promise<Resp
     return Res.notFound();
   }
 
-  const logs = await failLogs.query(account.username);
   const todayStr = new Date().toISOString().slice(0, 10);
-  const todayLogs = logs.filter((l: { date?: string }) => l.date === todayStr);
+  const logRepo = new D1LogRepository(env.DB);
+  const todayLogs = (await logRepo.query("error", todayStr)).filter((l) => l.username === username);
   const checkedToday = account.checkin_time
     ? new Date(account.checkin_time).toDateString() === new Date().toDateString()
     : false;
@@ -51,7 +50,8 @@ export async function apiLogs(request: Request, env: Env): Promise<Response> {
   const username = new URL(request.url).searchParams.get("username");
   if (!username) return Res.error("MISSING_USERNAME", "username required");
 
-  const failLogs = new KvFailLogRepository(env.KV);
-  const logs = await failLogs.query(username);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const logRepo = new D1LogRepository(env.DB);
+  const logs = (await logRepo.query("error", todayStr)).filter((l) => l.username === username);
   return Res.json({ success: true, logs });
 }

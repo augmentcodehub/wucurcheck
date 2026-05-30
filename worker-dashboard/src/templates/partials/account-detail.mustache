@@ -12,10 +12,10 @@
 </div>
 {{#hasLogs}}
 <div class="mt-4">
-  <div class="divider text-xs">失败记录</div>
+  <div class="divider text-xs">今日失败记录</div>
   <div class="max-h-40 overflow-y-auto space-y-1 text-xs">
     {{#logs}}
-    <div class="flex justify-between bg-error/10 rounded px-2 py-1"><span>{{date}}</span><span class="text-error truncate ml-2">{{reason}}</span></div>
+    <div class="flex justify-between bg-error/10 rounded px-2 py-1"><span>{{time}}</span><span class="text-error truncate ml-2">{{message}}</span></div>
     {{/logs}}
   </div>
 </div>
