@@ -3,7 +3,7 @@
  */
 
 import { log } from "../lib/log.js";
-import { timingSafeEqual } from "../lib/crypto.js";
+import { timingSafeEqual, sha256 } from "../lib/crypto.js";
 import { KV_PREFIX, KV_KEY, TTL, CONTENT_TYPE } from "../lib/constants.js";
 
 const SESSION_COOKIE = "session";
@@ -39,9 +39,10 @@ export async function handleLogin(env: Env, request?: Request): Promise<Response
   const pass = (form.get("pass") as string) || "";
 
   let valid = false;
+  const passHash = await sha256(pass);
   const kvUser = await env.KV.get<{ password: string; role: string }>(`${KV_PREFIX.USER}${user}`, "json");
   if (kvUser) {
-    valid = timingSafeEqual(pass, kvUser.password || "");
+    valid = timingSafeEqual(passHash, kvUser.password || "");
   } else if (timingSafeEqual(user, env.ADMIN_USER || "admin")) {
     const kvPass = await env.KV.get(KV_KEY.ADMIN_PASS);
     valid = timingSafeEqual(pass, kvPass || env.ADMIN_PASS || "");

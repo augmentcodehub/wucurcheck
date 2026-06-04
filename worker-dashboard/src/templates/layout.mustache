@@ -57,12 +57,12 @@
     </aside>
   </div>
 </div>
-<div id="toast" class="toast toast-end hidden"><div class="alert" id="toast-msg"></div></div>
+<div id="toast" class="toast toast-end z-50 transition-opacity duration-300 opacity-0 pointer-events-none"><div class="alert" id="toast-msg"></div></div>
 <script>
 function showToast(msg, ok) {
   const t = document.getElementById("toast"), m = document.getElementById("toast-msg");
   m.textContent = msg; m.className = "alert " + (ok ? "alert-success" : "alert-error");
-  t.classList.remove("hidden"); setTimeout(() => t.classList.add("hidden"), 3000);
+  t.classList.remove("opacity-0","pointer-events-none"); setTimeout(() => t.classList.add("opacity-0","pointer-events-none"), 3000);
 }
 function togglePwd(btn) {
   const span = btn.parentElement.querySelector(".pwd-mask");
@@ -82,10 +82,10 @@ document.body.addEventListener("htmx:afterRequest", function(e) {
   } catch {}
 });
 document.body.addEventListener("htmx:beforeRequest", function(e) {
-  const btn = e.detail.elt; if (btn.tagName === "BUTTON") btn.classList.add("loading", "loading-spinner");
+  const btn = e.detail.elt; if (btn.tagName === "BUTTON") btn.classList.add("btn-loading");
 });
 document.body.addEventListener("htmx:afterRequest", function(e) {
-  const btn = e.detail.elt; if (btn.tagName === "BUTTON") btn.classList.remove("loading", "loading-spinner");
+  const btn = e.detail.elt; if (btn.tagName === "BUTTON") btn.classList.remove("btn-loading");
 });
 </script>
 <script src="/static/islands/pagination.js"></script>

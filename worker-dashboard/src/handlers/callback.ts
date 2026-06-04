@@ -156,11 +156,11 @@ async function handleBatchResult(data: Record<string, unknown>, env: Env): Promi
 
       await repo.put(username, fields);
 
-      // 新注册的 kiro 账号写入注册日志
-      if (!existing && fields.platform === "kiro") {
+      // 新注册的账号写入注册日志
+      if (!existing) {
         const { D1LogRepository } = await import("../repositories/d1-log-repository.js");
         const logRepo = new D1LogRepository(env.DB);
-        await logRepo.insert({ type: "register", time: new Date().toISOString(), username, platform: "kiro", status: fields.status || "active", message: fields.last_result || undefined });
+        await logRepo.insert({ type: "register", time: new Date().toISOString(), username, platform: fields.platform || "wucur", status: fields.status || "active", message: fields.last_result || undefined });
       }
 
       if (item.status === "failed") {

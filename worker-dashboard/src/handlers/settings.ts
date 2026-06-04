@@ -4,6 +4,7 @@ import { log } from "../lib/log.js";
 import { getSessionUser } from "../services/auth-service.js";
 import { KV_PREFIX, KV_KEY } from "../lib/constants.js";
 import { Res } from "../lib/response.js";
+import { sha256 } from "../lib/crypto.js";
 
 async function isAdmin(request: Request, env: Env): Promise<boolean> {
   const user = await getSessionUser(request, env);
@@ -26,12 +27,13 @@ export async function apiSettings(request: Request, env: Env): Promise<Response>
   if (body.action === "change_password") {
     const newPass = body.new_password as string;
     if (!newPass || newPass.length < 4) return Res.error("INVALID", "密码至少4位", 400);
+    const hashed = await sha256(newPass);
     const user = await getSessionUser(request, env);
     if (user === (env.ADMIN_USER || "admin")) {
       await env.KV.put(KV_KEY.ADMIN_PASS, newPass);
     } else if (user) {
       const kvUser = await env.KV.get<Record<string, unknown>>(`${KV_PREFIX.USER}${user}`, "json");
-      if (kvUser) await env.KV.put(`${KV_PREFIX.USER}${user}`, JSON.stringify({ ...kvUser, password: newPass }));
+      if (kvUser) await env.KV.put(`${KV_PREFIX.USER}${user}`, JSON.stringify({ ...kvUser, password: hashed }));
     }
     log.info("password_changed", { user: user || "" });
     return Res.json({ success: true });
@@ -47,8 +49,9 @@ export async function apiSettings(request: Request, env: Env): Promise<Response>
     if (!username || !password || password.length < 4) return Res.error("INVALID", "用户名和密码必填", 400);
     const existing = await env.KV.get(`${KV_PREFIX.USER}${username}`);
     if (existing) return Res.error("EXISTS", "用户已存在", 400);
+    const hashed = await sha256(password);
     await env.KV.put(`${KV_PREFIX.USER}${username}`, JSON.stringify({
-      password,
+      password: hashed,
       role: (body.role as string) || "viewer",
       created_at: new Date().toISOString(),
     }));

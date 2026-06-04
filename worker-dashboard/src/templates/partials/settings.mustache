@@ -1,8 +1,10 @@
 <div class="mt-6 bg-base-100 rounded-box shadow p-4">
   <h3 class="font-bold mb-2">🔑 修改密码</h3>
   <div class="flex gap-2 items-center">
-    <input id="new-pass" type="password" placeholder="输入新密码" class="input input-bordered input-sm w-48"/>
-    <button class="btn btn-sm btn-warning" onclick="changePass()">修改</button>
+    <div class="join">
+      <input id="new-pass" type="password" placeholder="输入新密码" class="input input-bordered input-sm join-item w-48"/>
+      <button class="btn btn-sm btn-warning join-item" onclick="changePass()">修改</button>
+    </div>
     <span id="pass-status" class="text-xs"></span>
   </div>
 </div>
