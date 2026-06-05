@@ -27,15 +27,12 @@ jobs:
         repository: ouraihub/pycore
         path: _pycore
 
-    - name: Link pycore
-      run: ln -s $GITHUB_WORKSPACE/_pycore ../pycore
-
     - uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
     - name: 安装依赖
-      run: pip install -e .
+      run: pip install -e _pycore/ -e .
 
     - name: 逐个签到
       run: |
