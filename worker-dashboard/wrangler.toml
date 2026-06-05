@@ -3,6 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2024-12-01"
 compatibility_flags = ["nodejs_compat"]
 account_id = "34d0f0b38fb6c0bd4d3a8f76b1164b2e"
+workers_dev = true
 routes = [{ pattern = "worker.ouraihub.com", custom_domain = true }]
 
 [vars]
@@ -11,7 +12,7 @@ ADMIN_PASS = "kiro"
 CALLBACK_SECRET = "test_secret"
 GITHUB_REPO = "augmentcodehub/wucurcheck"
 GITHUB_WORKFLOW = "checkin.yml"
-WORKER_URL = "https://worker.ouraihub.com"
+WORKER_URL = "https://worker-dashboard.ouraihub.workers.dev"
 GITLAB_PROJECT_ID = "82408215"
 
 [[kv_namespaces]]
