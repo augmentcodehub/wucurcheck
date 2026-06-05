@@ -137,6 +137,7 @@ async function handleBatchResult(data: Record<string, unknown>, env: Env): Promi
       fields.username = username;
       if (!fields.status) fields.status = "active";
       if (!fields.last_result) fields.last_result = str(item.error) || str(item.message) || "批量结果更新";
+      if (fields.status === "active" && !fields.checkin_time) fields.checkin_time = new Date().toISOString();
 
       const existing = await repo.get(username);
       const statusChanged = existing?.status !== fields.status;
