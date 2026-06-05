@@ -22,6 +22,15 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - uses: actions/checkout@v4
+      with:
+        repository: ouraihub/pycore
+        path: _pycore
+        token: ${{ secrets.GH_PAT }}
+
+    - name: Link pycore
+      run: ln -s $GITHUB_WORKSPACE/_pycore ../pycore
+
     - uses: actions/setup-python@v5
       with:
         python-version: '3.11'
