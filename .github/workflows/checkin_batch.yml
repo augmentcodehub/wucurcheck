@@ -26,7 +26,6 @@ jobs:
       with:
         repository: ouraihub/pycore
         path: _pycore
-        token: ${{ secrets.GH_PAT }}
 
     - name: Link pycore
       run: ln -s $GITHUB_WORKSPACE/_pycore ../pycore
