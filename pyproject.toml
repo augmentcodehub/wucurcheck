@@ -26,7 +26,7 @@ build-backend = "setuptools.build_meta"
 package = true
 
 [tool.uv.sources]
-pycore = { path = "../pycore" }
+pycore = { git = "https://github.com/ouraihub/pycore.git", branch = "master" }
 
 [tool.setuptools]
 py-modules = ["checkin"]

@@ -58,7 +58,7 @@ requires-dist = [
     { name = "cbor2", specifier = ">=6.1.1" },
     { name = "httpx", extras = ["http2"], specifier = ">=0.24.0" },
     { name = "playwright", specifier = ">=1.40.0" },
-    { name = "pycore", directory = "../pycore" },
+    { name = "pycore", git = "https://github.com/ouraihub/pycore.git?branch=master" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "socksio", specifier = ">=1.0.0" },
     { name = "typer", specifier = ">=0.15.0" },
@@ -641,18 +641,10 @@ wheels = [
 [[package]]
 name = "pycore"
 version = "0.1.0"
-source = { directory = "../pycore" }
+source = { git = "https://github.com/ouraihub/pycore.git?branch=master#3ea865b3b8768f0f8fd7889f9fbe3849318f97c1" }
 dependencies = [
     { name = "typer" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5" },
-    { name = "typer", specifier = ">=0.12" },
-]
-provides-extras = ["dev"]
 
 [[package]]
 name = "pyee"
